@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useApp } from '../context/AppContext';
 
 interface FriendProfile {
   id: string;
@@ -21,8 +19,6 @@ interface FriendProfile {
 export const FriendProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { achievements } = useApp();
   
   const [profile, setProfile] = useState<FriendProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,7 +80,6 @@ export const FriendProfilePage: React.FC = () => {
 
   // Calculate Level (example logic)
   const level = Math.floor(profile.user_stats.total_points / 50) + 1;
-  const totalTasks = profile.user_stats.tasks_completed_daily + profile.user_stats.tasks_completed_weekly + profile.user_stats.tasks_completed_monthly;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

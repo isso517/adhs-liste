@@ -36,6 +36,41 @@ export const FriendsPage: React.FC = () => {
   useEffect(() => {
     if (user) {
       fetchFriends();
+
+      // Subscribe to realtime changes for user_stats
+      const channel = supabase
+        .channel('public:user_stats')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'user_stats',
+          },
+          (payload) => {
+            const newStats = payload.new as any;
+            setFriends((currentFriends) => 
+              currentFriends.map((friend) => {
+                if (friend.id === newStats.user_id) {
+                  return {
+                    ...friend,
+                    points: newStats.points,
+                    total_points: newStats.total_points,
+                    tasks_completed_daily: newStats.tasks_completed_daily,
+                    tasks_completed_weekly: newStats.tasks_completed_weekly,
+                    tasks_completed_monthly: newStats.tasks_completed_monthly,
+                  };
+                }
+                return friend;
+              })
+            );
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 

@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { clsx } from 'clsx';
-import { Gamepad2, Users, Loader2, Play, Sword, Brain, Hand } from 'lucide-react';
+import { Users, Sword, Brain, Hand } from 'lucide-react';
 
 interface Invite {
   id: string;

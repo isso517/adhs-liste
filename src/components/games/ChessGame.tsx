@@ -50,7 +50,7 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
   }
 
   return (
-    <div className="w-full max-w-[400px] aspect-square">
+    <div className="w-full max-w-[400px] aspect-square mx-auto">
       <Chessboard 
         position={game.fen()} 
         onPieceDrop={onDrop}

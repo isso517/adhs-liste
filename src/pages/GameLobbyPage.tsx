@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, ArrowLeft, Search, UserPlus } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 
 interface Friend {
   id: string;

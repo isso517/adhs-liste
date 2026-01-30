@@ -9,7 +9,7 @@ interface Props {
   onMove: (newState: any, winnerId?: string) => void;
 }
 
-export const RPSGame: React.FC<Props> = ({ gameState, isMyTurn, myPlayerId, onMove }) => {
+export const RPSGame: React.FC<Props> = ({ gameState, myPlayerId, onMove }) => {
   const [selectedMove, setSelectedMove] = useState<string | null>(null);
 
   // Determine which player I am relative to state
@@ -31,8 +31,8 @@ export const RPSGame: React.FC<Props> = ({ gameState, isMyTurn, myPlayerId, onMo
     const newMoves = { ...moves, [myPlayerId]: move };
     
     // Check if both moved
-    const playerIds = Object.keys(newMoves);
-    let winnerId = undefined;
+    // const playerIds = Object.keys(newMoves);
+    // let winnerId = undefined;
     
     // If we have 2 moves (assuming 2 players), calculate winner
     // We don't know the opponent ID easily unless we check keys length > 1

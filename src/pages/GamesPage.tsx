@@ -1,26 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Users, Sword, Brain, Hand } from 'lucide-react';
+import { Users, Sword, Brain, Hand, Crown } from 'lucide-react';
 
 interface Invite {
   id: string;
   sender_id: string;
-  game_type: 'chess' | 'tictactoe' | 'rps';
+  game_type: 'chess' | 'tictactoe' | 'rps' | 'freestyle_chess';
   status: 'pending' | 'accepted' | 'declined';
   sender?: { username: string; avatar_url: string };
 }
 
 export const GamesPage: React.FC = () => {
-  const { themes, activeThemeId } = useApp();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const activeTheme = themes.find(t => t.id === activeThemeId) || themes[0];
 
   const [invites, setInvites] = useState<Invite[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Listen for invites
   useEffect(() => {
@@ -38,7 +34,7 @@ export const GamesPage: React.FC = () => {
           table: 'game_invites',
           filter: `receiver_id=eq.${user.id}`
         },
-        (payload) => {
+        () => {
           // New invite received
           fetchInvites();
           // Ideally show a toast here
@@ -84,8 +80,6 @@ export const GamesPage: React.FC = () => {
       setInvites(data || []);
     } catch (err) {
       console.error('Error fetching invites:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -127,7 +121,7 @@ export const GamesPage: React.FC = () => {
     setInvites(prev => prev.filter(i => i.id !== id));
   };
 
-  const startNewGame = (type: 'chess' | 'tictactoe' | 'rps') => {
+  const startNewGame = (type: 'chess' | 'tictactoe' | 'rps' | 'freestyle_chess') => {
     // Navigate to a lobby/select friend screen
     navigate(`/games/new?type=${type}`);
   };
@@ -173,6 +167,19 @@ export const GamesPage: React.FC = () => {
 
       {/* Game Selection */}
       <div className="grid grid-cols-1 gap-4">
+        <button 
+          onClick={() => startNewGame('freestyle_chess')}
+          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:scale-[1.02] transition-transform group"
+        >
+          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+            <Crown size={32} />
+          </div>
+          <div className="text-left">
+            <h3 className="text-lg font-bold text-gray-800">Freestyle Chess</h3>
+            <p className="text-sm text-gray-500">Strategie mit verdeckten Rollen.</p>
+          </div>
+        </button>
+
         <button 
           onClick={() => startNewGame('chess')}
           className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:scale-[1.02] transition-transform group"

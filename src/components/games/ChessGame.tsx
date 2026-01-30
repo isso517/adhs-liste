@@ -13,6 +13,7 @@ interface Props {
 
 export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onMove, player1Id, player2Id }) => {
   const [game, setGame] = useState(new Chess());
+  const ChessboardAny = Chessboard as any;
 
   useEffect(() => {
     if (gameState?.fen) {
@@ -51,10 +52,10 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
 
   return (
     <div className="w-full max-w-[400px] aspect-square mx-auto">
-      <Chessboard 
+      <ChessboardAny 
         position={game.fen()} 
         onPieceDrop={onDrop}
-        boardOrientation={isPlayer1 ? 'white' : 'black'}
+        boardOrientation={(isPlayer1 ? 'white' : 'black') as 'white' | 'black'}
         arePiecesDraggable={isMyTurn}
       />
     </div>

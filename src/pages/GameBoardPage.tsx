@@ -8,6 +8,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { TicTacToeGame } from '../components/games/TicTacToeGame';
 import { RPSGame } from '../components/games/RPSGame';
 import { ChessGame } from '../components/games/ChessGame';
+import { FreestyleChessGame } from '../components/games/FreestyleChessGame';
 
 export const GameBoardPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -97,6 +98,7 @@ export const GameBoardPage: React.FC = () => {
             {game.game_type === 'tictactoe' && 'Tic-Tac-Toe'}
             {game.game_type === 'chess' && 'Schach'}
             {game.game_type === 'rps' && 'Schere Stein Papier'}
+            {game.game_type === 'freestyle_chess' && 'Freestyle Chess'}
           </h2>
           <p className="text-xs text-white/80">
             {game.status === 'finished' 
@@ -145,6 +147,20 @@ export const GameBoardPage: React.FC = () => {
              // Logic will be inside RPSGame component.
              handleUpdateGameState(newState, undefined, winnerId);
            }}
+         />
+        )}
+
+        {game.game_type === 'freestyle_chess' && (
+           <FreestyleChessGame 
+           gameState={game.state} 
+           isMyTurn={isMyTurn}
+           isPlayer1={isPlayer1}
+           onMove={(newState: any, nextTurnId: string, winnerId?: string) => {
+             handleUpdateGameState(newState, nextTurnId, winnerId);
+           }}
+           player1Id={game.player1_id}
+           player2Id={game.player2_id}
+           myPlayerId={user!.id}
          />
         )}
       </div>

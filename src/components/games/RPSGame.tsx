@@ -47,7 +47,6 @@ export const RPSGame: React.FC<Props> = ({ gameState, myPlayerId, onMove }) => {
     // For this simple app, we'll just show "Waiting..."
     
     onMove({ moves: newMoves }, undefined);
-    setSelectedMove(move);
   };
 
   const getWinner = () => {

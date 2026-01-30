@@ -245,8 +245,8 @@ export const FriendsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <h2 className={clsx("text-2xl font-bold", activeTheme.colors.text)}>Social Hub</h2>
+      <div className="flex flex-col items-center justify-center gap-4 relative">
+        <h2 className="text-2xl font-bold text-white drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)] text-center w-full">Social Hub</h2>
         <div className="flex gap-2">
           <button
             onClick={() => setActiveTab('leaderboard')}

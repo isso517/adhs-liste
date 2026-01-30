@@ -37,12 +37,12 @@ export const Layout: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 pb-24 max-w-md mx-auto w-full">
+      <main className="flex-1 p-4 pb-24 max-w-md mx-auto w-full mb-16">
         <Outlet />
       </main>
 
       {/* Bottom Navigation */}
-      <nav className={clsx("fixed bottom-0 left-0 right-0 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700")}>
+      <nav className={clsx("fixed bottom-0 left-0 right-0 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 z-50")}>
         <div className="flex justify-around items-center max-w-md mx-auto h-16">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink

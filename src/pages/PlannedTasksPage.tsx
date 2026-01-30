@@ -15,8 +15,8 @@ export const PlannedTasksPage: React.FC<Props> = ({ type, title }) => {
   const { tasks, addTask, toggleTask, deleteTask, themes, activeThemeId } = useApp();
   const [newTaskText, setNewTaskText] = useState('');
   
-  // For Monthly: standard date input
-  const [monthlyDate, setMonthlyDate] = useState(new Date().toISOString().split('T')[0]);
+  // For Monthly: selected month index (0-2 for next 3 months)
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState(0);
   
   // For Weekly: selected weekday index (0-5 for rolling window)
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
@@ -37,7 +37,26 @@ export const PlannedTasksPage: React.FC<Props> = ({ type, title }) => {
     return dates;
   };
 
+  // Next 3 Months
+  const getNextThreeMonths = () => {
+    const months = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      months.push({
+        date: d,
+        label: d.toLocaleDateString('de-DE', { month: 'long' }),
+        year: d.getFullYear(),
+        month: d.getMonth()
+      });
+    }
+    return months;
+  };
+
   const rollingDates = getRollingWeek();
+  const nextMonths = getNextThreeMonths();
+  
   const weekDateStrings = rollingDates.map(d => {
     const offset = d.getTimezoneOffset();
     const date = new Date(d.getTime() - (offset*60*1000));
@@ -51,7 +70,12 @@ export const PlannedTasksPage: React.FC<Props> = ({ type, title }) => {
   };
 
   const filteredTasks = tasks.filter(t => {
-    if (type === 'monthly') return t.type === 'monthly';
+    if (type === 'monthly') {
+      if (t.type !== 'monthly') return false;
+      const taskDate = t.dueDate ? new Date(t.dueDate) : new Date();
+      const selectedMonth = nextMonths[selectedMonthIndex];
+      return taskDate.getMonth() === selectedMonth.month && taskDate.getFullYear() === selectedMonth.year;
+    }
     
     if (type === 'weekly') {
       const selectedDateString = weekDateStrings[selectedDayIndex];
@@ -70,7 +94,28 @@ export const PlannedTasksPage: React.FC<Props> = ({ type, title }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTaskText.trim()) {
-      const dueDate = type === 'weekly' ? weekDateStrings[selectedDayIndex] : monthlyDate;
+      let dueDate;
+      if (type === 'weekly') {
+        dueDate = weekDateStrings[selectedDayIndex];
+      } else {
+        // For monthly, default to the 1st of the selected month
+        // Or today if it's the current month and today > 1st
+        const selectedMonth = nextMonths[selectedMonthIndex];
+        const today = new Date();
+        
+        let d = new Date(selectedMonth.year, selectedMonth.month, 1);
+        
+        // If selected month is current month, use today's date instead of 1st
+        if (selectedMonth.month === today.getMonth() && selectedMonth.year === today.getFullYear()) {
+          d = today;
+        }
+        
+        // Adjust for timezone to get YYYY-MM-DD
+        const offset = d.getTimezoneOffset();
+        d = new Date(d.getTime() - (offset*60*1000));
+        dueDate = d.toISOString().split('T')[0];
+      }
+      
       addTask(newTaskText.trim(), type, dueDate);
       setNewTaskText('');
       playSound.click();
@@ -112,41 +157,54 @@ export const PlannedTasksPage: React.FC<Props> = ({ type, title }) => {
         </div>
       )}
 
+      {type === 'monthly' && (
+        <div className="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 scrollbar-hide">
+          {nextMonths.map((m, index) => {
+            const isSelected = selectedMonthIndex === index;
+            return (
+              <button
+                key={m.label}
+                onClick={() => setSelectedMonthIndex(index)}
+                className={clsx(
+                  "px-4 py-2 rounded-full whitespace-nowrap transition-all text-sm font-medium",
+                  isSelected 
+                    ? `text-white shadow-md ${activeTheme.colors.primary}` 
+                    : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                )}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <div className="flex gap-2">
           <input
             type="text"
             value={newTaskText}
             onChange={(e) => setNewTaskText(e.target.value)}
-            placeholder={type === 'weekly' ? `Aufgabe für ${getDayLabel(rollingDates[selectedDayIndex], selectedDayIndex)}...` : "Neue Aufgabe..."}
+            placeholder={
+              type === 'weekly' 
+                ? `Aufgabe für ${getDayLabel(rollingDates[selectedDayIndex], selectedDayIndex)}...` 
+                : `Aufgabe für ${nextMonths[selectedMonthIndex].label}...`
+            }
             className="flex-1 p-3 rounded-lg border border-white/40 bg-white/70 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm placeholder-gray-500"
           />
         </div>
         
         <div className="flex gap-2">
-          {type === 'monthly' && (
-            <div className="relative flex-1">
-               <input
-                type="date"
-                value={monthlyDate}
-                onChange={(e) => setMonthlyDate(e.target.value)}
-                className="w-full p-3 rounded-lg border border-white/40 bg-white/70 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-gray-700"
-              />
-              <CalendarIcon className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={20} />
-            </div>
-          )}
-          
           <button
             type="submit"
             disabled={!newTaskText.trim()}
             className={clsx(
-              "p-3 rounded-lg text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center hover:scale-105 active:scale-95 shadow-lg",
-              type === 'monthly' ? "w-16" : "w-full",
+              "p-3 rounded-lg text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center hover:scale-105 active:scale-95 shadow-lg w-full",
               activeTheme.colors.primary
             )}
           >
             <Plus size={24} />
-            {type === 'weekly' && <span className="ml-2 font-medium">Hinzufügen</span>}
+            <span className="ml-2 font-medium">Hinzufügen</span>
           </button>
         </div>
       </form>
@@ -157,7 +215,7 @@ export const PlannedTasksPage: React.FC<Props> = ({ type, title }) => {
             <div className="text-center py-4 px-6 text-white bg-black/20 backdrop-blur-sm rounded-lg inline-block mx-auto shadow-sm border border-white/20">
               {type === 'weekly' 
                 ? `Keine Aufgaben für ${getDayLabel(rollingDates[selectedDayIndex], selectedDayIndex)}.` 
-                : "Keine Aufgaben geplant."}
+                : `Keine Aufgaben für ${nextMonths[selectedMonthIndex].label}.`}
             </div>
           </div>
         ) : (

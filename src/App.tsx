@@ -11,7 +11,7 @@ import { AccountPage } from './pages/AccountPage';
 const App: React.FC = () => {
   return (
     <AppProvider>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <BrowserRouter basename={import.meta.env.DEV ? '/' : '/adhs-liste'}>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<LandingPage />} />

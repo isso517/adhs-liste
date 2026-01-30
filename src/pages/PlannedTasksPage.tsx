@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Plus, Trash2, Check, Calendar as CalendarIcon } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -136,10 +136,12 @@ export const PlannedTasksPage: React.FC<Props> = ({ type, title }) => {
 
       <div className="space-y-3">
         {sortedTasks.length === 0 ? (
-          <div className="text-center py-10 text-gray-500">
-            {type === 'weekly' 
-              ? `Keine Aufgaben für ${WEEKDAYS[selectedDayIndex]}.` 
-              : "Keine Aufgaben geplant."}
+          <div className="text-center">
+            <div className="text-center py-4 px-6 text-white bg-black/20 backdrop-blur-sm rounded-lg inline-block mx-auto shadow-sm border border-white/20">
+              {type === 'weekly' 
+                ? `Keine Aufgaben für ${WEEKDAYS[selectedDayIndex]}.` 
+                : "Keine Aufgaben geplant."}
+            </div>
           </div>
         ) : (
           sortedTasks.map(task => (

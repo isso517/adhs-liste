@@ -73,8 +73,10 @@ export const LandingPage: React.FC = () => {
 
       <div className="space-y-3">
         {sortedTasks.length === 0 ? (
-          <div className="text-center py-10 text-gray-500">
-            Keine Aufgaben. Füge eine hinzu!
+          <div className="text-center">
+            <div className="text-center py-4 px-6 text-white bg-black/20 backdrop-blur-sm rounded-lg inline-block mx-auto shadow-sm border border-white/20">
+              Keine Aufgaben. Füge eine hinzu!
+            </div>
           </div>
         ) : (
           sortedTasks.map(task => (

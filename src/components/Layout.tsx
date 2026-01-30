@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { CheckSquare, ShoppingBag, Trophy, User, Coins, Sparkles, Calendar, CalendarDays } from 'lucide-react';
+import { CheckSquare, ShoppingBag, User, Coins, Sparkles, Calendar, CalendarDays } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { clsx } from 'clsx';
 

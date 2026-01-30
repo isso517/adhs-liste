@@ -119,17 +119,22 @@ export const FriendsPage: React.FC = () => {
 
       if (profilesError) throw profilesError;
 
-      const formattedFriends: FriendData[] = profiles.map((p: any) => ({
-        id: p.id,
-        username: p.username,
-        avatar_url: p.avatar_url,
-        friend_code: p.friend_code,
-        points: p.user_stats?.[0]?.points || 0,
-        total_points: p.user_stats?.[0]?.total_points || 0,
-        tasks_completed_daily: p.user_stats?.[0]?.tasks_completed_daily || 0,
-        tasks_completed_weekly: p.user_stats?.[0]?.tasks_completed_weekly || 0,
-        tasks_completed_monthly: p.user_stats?.[0]?.tasks_completed_monthly || 0,
-      }));
+      const formattedFriends: FriendData[] = profiles.map((p: any) => {
+        // Handle user_stats being returned as array or single object
+        const stats = Array.isArray(p.user_stats) ? p.user_stats[0] : p.user_stats;
+        
+        return {
+          id: p.id,
+          username: p.username,
+          avatar_url: p.avatar_url,
+          friend_code: p.friend_code,
+          points: stats?.points || 0,
+          total_points: stats?.total_points || 0,
+          tasks_completed_daily: stats?.tasks_completed_daily || 0,
+          tasks_completed_weekly: stats?.tasks_completed_weekly || 0,
+          tasks_completed_monthly: stats?.tasks_completed_monthly || 0,
+        };
+      });
 
       setFriends(formattedFriends);
     } catch (err) {

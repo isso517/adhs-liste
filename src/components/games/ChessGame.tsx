@@ -29,7 +29,6 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
   const [game, setGame] = useState(new Chess());
   const [optionSquares, setOptionSquares] = useState<Record<string, any>>({});
   const { activeThemeId } = useApp();
-  const ChessboardAny = Chessboard as any;
   
   // Update game instance when FEN changes from props
   useEffect(() => {

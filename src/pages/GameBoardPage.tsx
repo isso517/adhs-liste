@@ -9,6 +9,7 @@ import { TicTacToeGame } from '../components/games/TicTacToeGame';
 import { RPSGame } from '../components/games/RPSGame';
 import { ChessGame } from '../components/games/ChessGame';
 import { FreestyleChessGame } from '../components/games/FreestyleChessGame';
+import { GameChat } from '../components/GameChat';
 
 export const GameBoardPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();

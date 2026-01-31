@@ -133,6 +133,7 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
         boardOrientation={(isPlayer1 ? 'white' : 'black') as 'white' | 'black'}
         arePiecesDraggable={isMyTurn}
         animationDuration={200}
+        customPieces={customPieces}
       />
     </div>
   );

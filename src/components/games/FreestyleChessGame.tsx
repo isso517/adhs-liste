@@ -306,7 +306,7 @@ const PieceComponent: React.FC<{ piece: PieceWithPos, isMine: boolean, gameStart
 
   // Map piece type/color to SVG
   const typeMap: Record<string, string> = { 'p': 'p', 'r': 'r', 'n': 'n', 'b': 'b', 'q': 'q', 'k': 'k' };
-  const icon = ChessPieceIcons[pieceColor][typeMap[piece.type] || 'p'];
+  const Icon = ChessPieceIcons[pieceColor][typeMap[piece.type] || 'p'];
 
   const getRoleIcon = () => {
     if (!showRole) return <div className="bg-black/50 text-white rounded-full p-1"><HelpCircle size={12} /></div>;
@@ -330,7 +330,7 @@ const PieceComponent: React.FC<{ piece: PieceWithPos, isMine: boolean, gameStart
 
       {/* Chess Piece SVG */}
       <div className={clsx("w-[90%] h-[90%] transition-transform hover:scale-105", piece.isDead && "opacity-20")}>
-        {icon}
+        <Icon width="100%" height="100%" />
       </div>
 
       {/* Role Badge */}

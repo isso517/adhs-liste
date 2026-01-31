@@ -50,25 +50,6 @@ export const LocalGamePage: React.FC = () => {
     setSetupComplete(true);
   };
 
-  // -- AI Logic --
-  useEffect(() => {
-    if (!setupComplete) return;
-
-    let shouldAct = !isMyTurn && gameStatus === 'playing';
-    
-    // Freestyle setup check
-    if (type === 'freestyle_chess' && freestyleState.setup && !freestyleState.setup.cpu?.ready) {
-      shouldAct = true;
-    }
-
-    if (shouldAct) {
-      const timer = setTimeout(() => {
-        makeAIMove();
-      }, 1000); 
-      return () => clearTimeout(timer);
-    }
-  }, [isMyTurn, gameStatus, freestyleState, type, setupComplete]);
-
   const makeAIMove = () => {
     if (type === 'tictactoe') {
       const moveIdx = getTicTacToeMove(tictactoeState.board, difficulty);
@@ -114,6 +95,25 @@ export const LocalGamePage: React.FC = () => {
       }
     }
   };
+
+  // -- AI Logic --
+  useEffect(() => {
+    if (!setupComplete) return;
+
+    let shouldAct = !isMyTurn && gameStatus === 'playing';
+    
+    // Freestyle setup check
+    if (type === 'freestyle_chess' && freestyleState.setup && !freestyleState.setup.cpu?.ready) {
+      shouldAct = true;
+    }
+
+    if (shouldAct) {
+      const timer = setTimeout(() => {
+        makeAIMove();
+      }, 1000); 
+      return () => clearTimeout(timer);
+    }
+  }, [isMyTurn, gameStatus, freestyleState, type, setupComplete]);
 
   const handlePlayerMove = (newState: any, nextTurnId?: string) => {
     if (type === 'tictactoe') {

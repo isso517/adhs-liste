@@ -341,6 +341,14 @@ export const getFreestyleMove = (gameState: GameState, playerId: string, difficu
     const result = resolveCombat(movingPiece, targetPiece);
     movingPiece.revealed = true;
     targetPiece.revealed = true;
+    newState.lastCombat = {
+      attackerId: movingPiece.id,
+      defenderId: targetPiece.id,
+      attackerRole: movingPiece.role,
+      defenderRole: targetPiece.role,
+      winnerOwnerId: result.draw ? undefined : result.winner?.owner,
+      draw: result.draw
+    };
     
     if (result.winner === movingPiece) {
       targetPiece.isDead = true;
@@ -366,6 +374,7 @@ export const getFreestyleMove = (gameState: GameState, playerId: string, difficu
   } else {
     movingPiece.row = move.toRow;
     movingPiece.col = move.toCol;
+    newState.lastCombat = undefined;
   }
   
   return { newState, moveDescription: moveDesc };

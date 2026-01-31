@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { useApp } from '../../context/AppContext';
@@ -26,21 +26,25 @@ const getThemeColors = (themeId: string) => {
 };
 
 export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onMove, player1Id, player2Id }) => {
-  const [game, setGame] = useState(new Chess());
   const [optionSquares, setOptionSquares] = useState<Record<string, any>>({});
+  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const { activeThemeId } = useApp();
-  
-  // Update game instance when FEN changes from props
-  useEffect(() => {
-    if (gameState?.fen) {
-       try {
-         const newGame = new Chess(gameState.fen);
-         setGame(newGame);
-       } catch (e) {
-         console.error("Invalid FEN:", gameState.fen);
-       }
+  const ChessboardComponent = Chessboard as any;
+  const fen = gameState?.fen ?? new Chess().fen();
+  const game = useMemo(() => {
+    try {
+      return new Chess(fen);
+    } catch {
+      return new Chess();
     }
-  }, [gameState]);
+  }, [fen]);
+  const myColor = isPlayer1 ? 'w' : 'b';
+  const canMove = isMyTurn && game.turn() === myColor;
+
+  const clearOptions = () => {
+    setOptionSquares({});
+    setSelectedSquare(null);
+  };
 
   const customPieces = useMemo(() => {
     const pieces = ['p', 'n', 'b', 'r', 'q', 'k'];
@@ -113,25 +117,22 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
   }
 
   function onPieceDragBegin(piece: string, sourceSquare: string) {
-    if (!isMyTurn) return;
-    // Only allow moving own pieces
-    const pieceColor = piece[0]; // 'w' or 'b'
-    const myColor = isPlayer1 ? 'w' : 'b'; // Assuming isPlayer1=true means White
-    
-    // Check if orientation matches piece color
+    if (!canMove) return;
+    const pieceColor = piece[0];
     if (pieceColor !== myColor) {
         return;
     }
 
+    setSelectedSquare(sourceSquare);
     getMoveOptions(sourceSquare);
   }
 
   function onPieceDragEnd() {
-    setOptionSquares({});
+    clearOptions();
   }
 
   function onDrop(sourceSquare: string, targetSquare: string) {
-    if (!isMyTurn) return false;
+    if (!canMove) return false;
 
     try {
       const gameCopy = new Chess(game.fen());
@@ -143,8 +144,6 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
 
       if (move === null) return false;
 
-      setGame(gameCopy);
-      
       const newFen = gameCopy.fen();
       const nextTurnId = isPlayer1 ? player2Id : player1Id;
       let winnerId = undefined;
@@ -154,22 +153,69 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
       }
       
       onMove({ fen: newFen }, nextTurnId, winnerId);
+      clearOptions();
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
 
+  function onSquareClick(square: string) {
+    if (!canMove) return;
+    const clickedPiece = game.get(square as any);
+    if (!selectedSquare) {
+      if (clickedPiece?.color === myColor) {
+        setSelectedSquare(square);
+        getMoveOptions(square);
+      }
+      return;
+    }
+
+    if (selectedSquare === square) {
+      clearOptions();
+      return;
+    }
+
+    const gameCopy = new Chess(game.fen());
+    const move = gameCopy.move({
+      from: selectedSquare,
+      to: square,
+      promotion: 'q'
+    });
+
+    if (move) {
+      const newFen = gameCopy.fen();
+      const nextTurnId = isPlayer1 ? player2Id : player1Id;
+      let winnerId = undefined;
+      
+      if (gameCopy.isCheckmate()) {
+        winnerId = isPlayer1 ? player1Id : player2Id; 
+      }
+      
+      onMove({ fen: newFen }, nextTurnId, winnerId);
+      clearOptions();
+      return;
+    }
+
+    if (clickedPiece?.color === myColor) {
+      setSelectedSquare(square);
+      getMoveOptions(square);
+      return;
+    }
+
+    clearOptions();
+  }
+
   return (
-    <div className="w-full max-w-[400px] aspect-square mx-auto">
-      <Chessboard 
-        // @ts-ignore
-        position={game.fen()} 
+    <div className="w-full max-w-[440px] aspect-square mx-auto">
+      <ChessboardComponent 
+        position={game.fen()}
         onPieceDrop={onDrop}
         onPieceDragBegin={onPieceDragBegin}
         onPieceDragEnd={onPieceDragEnd}
+        onSquareClick={onSquareClick}
         boardOrientation={isPlayer1 ? 'white' : 'black'}
-        arePiecesDraggable={isMyTurn}
+        arePiecesDraggable={canMove}
         customBoardStyle={{
           borderRadius: '4px',
           boxShadow: '0 5px 15px rgba(0, 0, 0, 0.5)',

@@ -1,9 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
 import { Flag, Square, Hand, Scissors, HelpCircle } from 'lucide-react';
 import { initGame, isValidMove, resolveCombat } from '../../lib/freestyleChess';
 import type { GameState, PieceWithPos, Role } from '../../lib/freestyleChess';
 import { ChessPieceIcons } from './ChessPieceIcons';
+import { useApp } from '../../context/AppContext';
+
+const getThemeColors = (themeId: string) => {
+  switch (themeId) {
+    case 'dark': return { white: '#c7d2fe', black: '#111827' };
+    case 'forest': return { white: '#d1fae5', black: '#064e3b' };
+    case 'wood': return { white: '#fde68a', black: '#451a03' };
+    case 'sunset': return { white: '#fed7aa', black: '#581c87' };
+    case 'silver': return { white: '#f3f4f6', black: '#1f2937' };
+    case 'metal': return { white: '#e4e4e7', black: '#18181b' };
+    default: return { white: '#f8fafc', black: '#0f172a' };
+  }
+};
 
 interface Props {
   gameState: any; 
@@ -20,11 +33,22 @@ export const FreestyleChessGame: React.FC<Props> = ({
 }) => {
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [selectedPiece, setSelectedPiece] = useState<PieceWithPos | null>(null);
-  const [setupMode, setSetupMode] = useState<'role' | 'flag'>('role'); // For setup phase
-  const [modifiedPieceIds, setModifiedPieceIds] = useState<Set<string>>(new Set()); // Track unique pieces modified
-  const [combatAnim, setCombatAnim] = useState<{ attacker: PieceWithPos, defender: PieceWithPos, result: string } | null>(null);
+  const [setupMode, setSetupMode] = useState<'role' | 'flag'>('role');
+  const [modifiedPieceIds, setModifiedPieceIds] = useState<Set<string>>(new Set());
+  const [combatAnim, setCombatAnim] = useState<{ attackerRole: Role, defenderRole: Role, result: 'win' | 'loss' | 'draw' } | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [prevLogLength, setPrevLogLength] = useState(0);
+  const [showResult, setShowResult] = useState(false);
+  const [lastCombatKey, setLastCombatKey] = useState<string | null>(null);
+  const { activeThemeId } = useApp();
+  const themeColors = useMemo(() => getThemeColors(activeThemeId), [activeThemeId]);
+  const resolvedColors = useMemo(() => {
+    const white = themeColors.white;
+    const black = themeColors.black;
+    if (white === black) {
+      return { white: '#f8fafc', black: '#0f172a' };
+    }
+    return { white, black };
+  }, [themeColors]);
 
   useEffect(() => {
     if (!gameState || Object.keys(gameState).length === 0) {
@@ -38,49 +62,36 @@ export const FreestyleChessGame: React.FC<Props> = ({
     }
   }, [gameState]);
 
-  // Watch for combat logs to trigger animation
   useEffect(() => {
-    if (gameState?.log && gameState.log.length > prevLogLength) {
-       // Check for new combat entries
-       for (let i = prevLogLength; i < gameState.log.length; i++) {
-         const entry = gameState.log[i];
-         if (entry.startsWith('Kampf:')) {
-            const parts = entry.split(' '); // "Kampf: rock vs paper"
-            const attackerRole = parts[1] as Role;
-            const defenderRole = parts[3] as Role;
-            
-            let resultText = "Kampf!";
-            if (i + 1 < gameState.log.length) {
-               resultText = gameState.log[i + 1];
-            }
-            
-            setCombatAnim({ 
-               attacker: { role: attackerRole } as any, 
-               defender: { role: defenderRole } as any, 
-               result: resultText 
-            });
-            setCountdown(3);
-         }
-       }
-       setPrevLogLength(gameState.log.length);
-    } else if (gameState?.log) {
-       if (prevLogLength === 0) setPrevLogLength(gameState.log.length);
-    }
-  }, [gameState?.log]);
+    const lastCombat = gameState?.lastCombat;
+    if (!lastCombat) return;
+    const combatKey = `${lastCombat.attackerId}:${lastCombat.defenderId}:${gameState?.log?.length ?? 0}`;
+    if (combatKey === lastCombatKey) return;
+    const result = lastCombat.draw ? 'draw' : lastCombat.winnerOwnerId === myPlayerId ? 'win' : 'loss';
+    setCombatAnim({
+      attackerRole: lastCombat.attackerRole,
+      defenderRole: lastCombat.defenderRole,
+      result
+    });
+    setShowResult(false);
+    setCountdown(3);
+    setLastCombatKey(combatKey);
+  }, [gameState?.lastCombat, gameState?.log?.length, lastCombatKey, myPlayerId]);
 
-  // Countdown timer
   useEffect(() => {
     if (countdown !== null && countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (countdown === 0) {
+    } else if (countdown === 0 && combatAnim) {
+       setShowResult(true);
        const timer = setTimeout(() => {
          setCombatAnim(null);
          setCountdown(null);
+         setShowResult(false);
        }, 3000);
        return () => clearTimeout(timer);
     }
-  }, [countdown]);
+  }, [countdown, combatAnim]);
 
 
   if (!localState) return <div>Loading...</div>;
@@ -170,8 +181,8 @@ export const FreestyleChessGame: React.FC<Props> = ({
   };
 
   const executeMove = (piece: PieceWithPos, toRow: number, toCol: number, target?: PieceWithPos) => {
-    let newBoard = [...localState.board];
-    let log = [...localState.log];
+    const newBoard = [...localState.board];
+    const log = [...localState.log];
     let winnerId: string | undefined = undefined;
     // Determine next turn: if current is player1, next is player2
     const nextTurn = localState.turn === player1Id ? player2Id : player1Id;
@@ -181,45 +192,40 @@ export const FreestyleChessGame: React.FC<Props> = ({
     newBoard[pIndex] = { ...piece, row: toRow, col: toCol };
 
     if (target) {
-      // COMBAT ANIMATION TRIGGER
       const { winner, draw } = resolveCombat(piece, target);
-      let resultText = '';
-      if (draw) resultText = 'Unentschieden!';
-      else if (winner?.id === piece.id) resultText = 'Angreifer gewinnt!';
-      else resultText = 'Verteidiger gewinnt!';
+      newBoard[pIndex].revealed = true;
+      const tIndex = newBoard.findIndex(p => p.id === target.id);
+      newBoard[tIndex].revealed = true;
 
-      // Show animation overlay
-      setCombatAnim({ attacker: piece, defender: target, result: resultText });
+      log.push(`Kampf: ${piece.role} vs ${target.role}`);
 
-      // Delay actual update to show animation
-      setTimeout(() => {
-        // Reveal roles
-        newBoard[pIndex].revealed = true;
-        const tIndex = newBoard.findIndex(p => p.id === target.id);
-        newBoard[tIndex].revealed = true;
+      if (draw) {
+        newBoard[pIndex].isDead = true;
+        newBoard[tIndex].isDead = true;
+        log.push('Unentschieden! Beide vernichtet.');
+      } else if (winner?.id === piece.id) {
+        newBoard[tIndex].isDead = true;
+        log.push(`Angreifer gewinnt!`);
+        if (target.hasFlag) winnerId = myPlayerId;
+      } else {
+        newBoard[pIndex].isDead = true;
+        log.push(`Verteidiger gewinnt!`);
+        if (piece.hasFlag) winnerId = target.owner; 
+      }
 
-        log.push(`Kampf: ${piece.role} vs ${target.role}`);
+      const lastCombat = {
+        attackerId: piece.id,
+        defenderId: target.id,
+        attackerRole: piece.role,
+        defenderRole: target.role,
+        winnerOwnerId: draw ? undefined : winner?.owner,
+        draw
+      };
 
-        if (draw) {
-          newBoard[pIndex].isDead = true;
-          newBoard[tIndex].isDead = true;
-          log.push('Unentschieden! Beide vernichtet.');
-        } else if (winner?.id === piece.id) {
-          newBoard[tIndex].isDead = true;
-          log.push(`Angreifer gewinnt!`);
-          if (target.hasFlag) winnerId = myPlayerId;
-        } else {
-          newBoard[pIndex].isDead = true;
-          log.push(`Verteidiger gewinnt!`);
-          if (piece.hasFlag) winnerId = target.owner; 
-        }
-
-        onMove({ ...localState, board: newBoard, log, turn: nextTurn }, nextTurn, winnerId);
-        setCombatAnim(null); // Hide animation
-      }, 2000); // 2 seconds animation
+      onMove({ ...localState, board: newBoard, log, turn: nextTurn, lastCombat }, nextTurn, winnerId);
     } else {
       // Simple move, immediate
-      onMove({ ...localState, board: newBoard, log, turn: nextTurn }, nextTurn, winnerId);
+      onMove({ ...localState, board: newBoard, log, turn: nextTurn, lastCombat: undefined }, nextTurn, winnerId);
     }
   };
 
@@ -248,7 +254,8 @@ export const FreestyleChessGame: React.FC<Props> = ({
             piece={piece} 
             isMine={piece.owner === myPlayerId} 
             gameStarted={gameStarted}
-            pieceColor={piece.owner === player1Id ? 'white' : 'black'} 
+            pieceColor={piece.owner === player1Id ? 'white' : 'black'}
+            pieceTone={piece.owner === player1Id ? resolvedColors.white : resolvedColors.black}
           />
         )}
       </div>
@@ -258,30 +265,28 @@ export const FreestyleChessGame: React.FC<Props> = ({
   // Flip board if P2 (Standard: White at bottom)
   const rows = isPlayer1 ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0];
   const cols = [0,1,2,3,4,5,6,7]; 
+  const resultLabel = combatAnim ? (combatAnim.result === 'win' ? 'Sieg!' : combatAnim.result === 'loss' ? 'Niederlage!' : 'Unentschieden!') : '';
   
   return (
-    <div className="flex flex-col gap-4 w-full max-w-[800px] mx-auto relative">
+    <div className="flex flex-col gap-4 w-full max-w-[900px] mx-auto relative">
       {combatAnim && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md rounded-lg">
           <div className="flex flex-col items-center gap-8 animate-in zoom-in duration-300 w-full">
             
-            {/* Countdown or Result */}
-            {countdown !== null && countdown > 0 ? (
+            {countdown !== null && countdown > 0 && !showResult ? (
                <div className="text-9xl font-black text-white animate-bounce drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">
                  {countdown}
                </div>
-            ) : (
-               <>
-                 <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-red-600 animate-pulse text-center px-4">
-                    {combatAnim.result}
-                 </h2>
-               </>
-            )}
+            ) : showResult ? (
+              <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-red-600 animate-pulse text-center px-4">
+                {resultLabel}
+              </h2>
+            ) : null}
             
             <div className="flex items-center gap-12">
               <div className="flex flex-col items-center gap-2 animate-shake-left">
                 <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center border-4 border-blue-500 shadow-lg">
-                   <span className="text-4xl capitalize">{combatAnim.attacker.role === 'rock' ? '🪨' : combatAnim.attacker.role === 'paper' ? '📄' : '✂️'}</span>
+                   <span className="text-4xl capitalize">{combatAnim.attackerRole === 'rock' ? '🪨' : combatAnim.attackerRole === 'paper' ? '📄' : '✂️'}</span>
                 </div>
                 <span className="font-bold text-blue-400">Angreifer</span>
               </div>
@@ -290,7 +295,7 @@ export const FreestyleChessGame: React.FC<Props> = ({
 
               <div className="flex flex-col items-center gap-2 animate-shake-right">
                 <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center border-4 border-red-500 shadow-lg">
-                   <span className="text-4xl capitalize">{combatAnim.defender.role === 'rock' ? '🪨' : combatAnim.defender.role === 'paper' ? '📄' : '✂️'}</span>
+                   <span className="text-4xl capitalize">{combatAnim.defenderRole === 'rock' ? '🪨' : combatAnim.defenderRole === 'paper' ? '📄' : '✂️'}</span>
                 </div>
                 <span className="font-bold text-red-400">Verteidiger</span>
               </div>
@@ -337,7 +342,7 @@ export const FreestyleChessGame: React.FC<Props> = ({
       )}
 
       {/* Board Container - Fixed Aspect Ratio */}
-      <div className="w-full aspect-square border-[8px] border-[#403A36] rounded shadow-2xl bg-[#312E2B]">
+      <div className="w-full aspect-square border-[10px] border-[#403A36] rounded shadow-2xl bg-[#312E2B]">
         <div className="grid grid-cols-8 grid-rows-8 h-full w-full">
           {rows.map(r => (
             cols.map(c => renderSquare(r, c))
@@ -353,7 +358,7 @@ export const FreestyleChessGame: React.FC<Props> = ({
   );
 };
 
-const PieceComponent: React.FC<{ piece: PieceWithPos, isMine: boolean, gameStarted: boolean, pieceColor: string }> = ({ piece, isMine, pieceColor }) => {
+const PieceComponent: React.FC<{ piece: PieceWithPos, isMine: boolean, gameStarted: boolean, pieceColor: string, pieceTone: string }> = ({ piece, isMine, pieceColor, pieceTone }) => {
   const showRole = isMine || piece.revealed;
   const showFlag = isMine && piece.hasFlag;
 
@@ -382,7 +387,7 @@ const PieceComponent: React.FC<{ piece: PieceWithPos, isMine: boolean, gameStart
       )}
 
       {/* Chess Piece SVG */}
-      <div className={clsx("w-[90%] h-[90%] transition-transform hover:scale-105", piece.isDead && "opacity-20")}>
+      <div className={clsx("w-[90%] h-[90%] transition-transform hover:scale-105", piece.isDead && "opacity-20", piece.type === 'king' && "ring-4 ring-yellow-400/80 rounded-full drop-shadow-[0_0_10px_rgba(250,204,21,0.9)]")} style={{ color: pieceTone }}>
         <Icon width="100%" height="100%" />
       </div>
 

@@ -180,7 +180,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Check achievements effect
   useEffect(() => {
-    let newUnlocks: string[] = [];
+    const newUnlocks: string[] = [];
     ACHIEVEMENTS.forEach(achievement => {
       if (!savedState.unlockedAchievementIds.includes(achievement.id)) {
         if (achievement.condition(appState)) {
@@ -232,8 +232,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // But if spent, points could go negative?
       // Let's prevent spending points you don't have, but unchecking removes point.
       
-      let newPoints = prev.points + pointsChange;
-      let newTotal = prev.totalPointsEarned + (isCompleting ? 1 : 0);
+      const newPoints = prev.points + pointsChange;
+      const newTotal = prev.totalPointsEarned + (isCompleting ? 1 : 0);
 
       // If unchecking and points would go below 0 (because spent), allow negative? 
       // Or just set to 0? If we set to 0, user can exploit by check->spend->uncheck->check->gain.

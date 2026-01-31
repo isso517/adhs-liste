@@ -34,6 +34,14 @@ export interface GameState {
   board: PieceWithPos[];
   turn: string; // current player id
   winner?: string;
+  lastCombat?: {
+    attackerId: string;
+    defenderId: string;
+    attackerRole: Role;
+    defenderRole: Role;
+    winnerOwnerId?: string;
+    draw: boolean;
+  };
   setup: {
     [userId: string]: {
       ready: boolean;

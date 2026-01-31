@@ -30,12 +30,6 @@ export const getChessMove = (fen: string): string | null => {
 
 // Freestyle Chess AI
 
-// Helper to get random role
-const getRandomRole = (): Role => {
-  const roles: Role[] = ['rock', 'paper', 'scissors'];
-  return roles[Math.floor(Math.random() * roles.length)];
-};
-
 export const performFreestyleSetup = (gameState: GameState, playerId: string): GameState => {
   const newState = JSON.parse(JSON.stringify(gameState)); // Deep copy
   const myPieces = newState.board.filter((p: PieceWithPos) => p.owner === playerId);

@@ -23,6 +23,8 @@ export const FreestyleChessGame: React.FC<Props> = ({
   const [setupMode, setSetupMode] = useState<'role' | 'flag'>('role'); // For setup phase
   const [modifiedPieceIds, setModifiedPieceIds] = useState<Set<string>>(new Set()); // Track unique pieces modified
   const [combatAnim, setCombatAnim] = useState<{ attacker: PieceWithPos, defender: PieceWithPos, result: string } | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [prevLogLength, setPrevLogLength] = useState(0);
 
   useEffect(() => {
     if (!gameState || Object.keys(gameState).length === 0) {
@@ -35,6 +37,51 @@ export const FreestyleChessGame: React.FC<Props> = ({
       // Ideally we persist this in GameState setupPhase, but for now we keep local session state.
     }
   }, [gameState]);
+
+  // Watch for combat logs to trigger animation
+  useEffect(() => {
+    if (gameState?.log && gameState.log.length > prevLogLength) {
+       // Check for new combat entries
+       for (let i = prevLogLength; i < gameState.log.length; i++) {
+         const entry = gameState.log[i];
+         if (entry.startsWith('Kampf:')) {
+            const parts = entry.split(' '); // "Kampf: rock vs paper"
+            const attackerRole = parts[1] as Role;
+            const defenderRole = parts[3] as Role;
+            
+            let resultText = "Kampf!";
+            if (i + 1 < gameState.log.length) {
+               resultText = gameState.log[i + 1];
+            }
+            
+            setCombatAnim({ 
+               attacker: { role: attackerRole } as any, 
+               defender: { role: defenderRole } as any, 
+               result: resultText 
+            });
+            setCountdown(3);
+         }
+       }
+       setPrevLogLength(gameState.log.length);
+    } else if (gameState?.log) {
+       if (prevLogLength === 0) setPrevLogLength(gameState.log.length);
+    }
+  }, [gameState?.log]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (countdown !== null && countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (countdown === 0) {
+       const timer = setTimeout(() => {
+         setCombatAnim(null);
+         setCountdown(null);
+       }, 3000);
+       return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
 
   if (!localState) return <div>Loading...</div>;
 
@@ -215,18 +262,28 @@ export const FreestyleChessGame: React.FC<Props> = ({
   return (
     <div className="flex flex-col gap-4 w-full max-w-[800px] mx-auto relative">
       {combatAnim && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-lg">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-6 animate-in zoom-in duration-300">
-            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-orange-600">DUELL!</h2>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md rounded-lg">
+          <div className="flex flex-col items-center gap-8 animate-in zoom-in duration-300 w-full">
+            
+            {/* Countdown or Result */}
+            {countdown !== null && countdown > 0 ? (
+               <div className="text-9xl font-black text-white animate-bounce drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">
+                 {countdown}
+               </div>
+            ) : (
+               <>
+                 <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-red-600 animate-pulse text-center px-4">
+                    {combatAnim.result}
+                 </h2>
+               </>
+            )}
             
             <div className="flex items-center gap-12">
               <div className="flex flex-col items-center gap-2 animate-shake-left">
                 <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center border-4 border-blue-500 shadow-lg">
-                   {/* We assume we can render the icon here based on role */}
-                   {/* Just showing generic for now or we duplicate logic? Let's use role text */}
                    <span className="text-4xl capitalize">{combatAnim.attacker.role === 'rock' ? '🪨' : combatAnim.attacker.role === 'paper' ? '📄' : '✂️'}</span>
                 </div>
-                <span className="font-bold text-blue-700">Angreifer</span>
+                <span className="font-bold text-blue-400">Angreifer</span>
               </div>
 
               <div className="text-4xl font-black text-gray-400">VS</div>
@@ -235,12 +292,8 @@ export const FreestyleChessGame: React.FC<Props> = ({
                 <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center border-4 border-red-500 shadow-lg">
                    <span className="text-4xl capitalize">{combatAnim.defender.role === 'rock' ? '🪨' : combatAnim.defender.role === 'paper' ? '📄' : '✂️'}</span>
                 </div>
-                <span className="font-bold text-red-700">Verteidiger</span>
+                <span className="font-bold text-red-400">Verteidiger</span>
               </div>
-            </div>
-
-            <div className="text-xl font-bold text-gray-800 animate-pulse mt-4">
-              {combatAnim.result}
             </div>
           </div>
         </div>

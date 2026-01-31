@@ -156,8 +156,8 @@ const evaluateBoard = (game: Chess): number => {
   return score;
 };
 
-// Simplified Minimax for Chess (Depth 2 max for JS responsiveness without worker)
-const minimaxChess = (game: Chess, depth: number, isMaximizing: boolean): number => {
+// Improved Minimax for Chess with Alpha-Beta Pruning
+const minimaxChess = (game: Chess, depth: number, alpha: number, beta: number, isMaximizing: boolean): number => {
   if (depth === 0 || game.isGameOver()) {
     return evaluateBoard(game);
   }
@@ -168,18 +168,22 @@ const minimaxChess = (game: Chess, depth: number, isMaximizing: boolean): number
     let bestScore = -Infinity;
     for (const move of moves) {
       game.move(move);
-      const score = minimaxChess(game, depth - 1, false);
+      const score = minimaxChess(game, depth - 1, alpha, beta, false);
       game.undo();
       bestScore = Math.max(score, bestScore);
+      alpha = Math.max(alpha, bestScore);
+      if (beta <= alpha) break; // Beta cut-off
     }
     return bestScore;
   } else { // Black
     let bestScore = Infinity;
     for (const move of moves) {
       game.move(move);
-      const score = minimaxChess(game, depth - 1, true);
+      const score = minimaxChess(game, depth - 1, alpha, beta, true);
       game.undo();
       bestScore = Math.min(score, bestScore);
+      beta = Math.min(beta, bestScore);
+      if (beta <= alpha) break; // Alpha cut-off
     }
     return bestScore;
   }
@@ -192,33 +196,37 @@ export const getChessMove = (fen: string, difficulty: Difficulty = 'medium'): st
     if (moves.length === 0) return null;
 
     if (difficulty === 'easy') {
-      return moves[Math.floor(Math.random() * moves.length)];
+      // 80% Random, 20% Best move to not be totally stupid
+      if (Math.random() > 0.2) return moves[Math.floor(Math.random() * moves.length)];
     }
 
     // Determine AI color
     const turn = game.turn(); // 'w' or 'b'
     const isWhite = turn === 'w';
 
-    // Medium: Greedy (capture best piece) - Depth 1
-    // Hard: Minimax Depth 2 (Look ahead one full round)
-    
+    // Difficulty Settings
+    // Medium: Depth 2 (Anticipate opponent's response)
+    // Hard: Depth 3 (Anticipate opponent's response to AI's response)
+    // Note: Depth 3 in JS can be slow. We might need to optimize or limit moves.
+    const depth = difficulty === 'hard' ? 3 : 2;
+
     let bestMove = null;
     let bestValue = isWhite ? -Infinity : Infinity;
     
-    // For Hard, we limit moves to analyze to keep it fast? No, pure minimax depth 2 is okay for ~30 moves.
-    // But moves.length can be 40+. 40^2 = 1600 nodes. Fast enough.
-    const depth = difficulty === 'hard' ? 2 : 1;
+    // Sort moves to improve Alpha-Beta pruning efficiency
+    // Captures first, then checks, etc.
+    // Simple heuristic: Captures first
+    const sortedMoves = moves.sort((a, b) => {
+        const isCaptureA = a.includes('x');
+        const isCaptureB = b.includes('x');
+        if (isCaptureA && !isCaptureB) return -1;
+        if (!isCaptureA && isCaptureB) return 1;
+        return 0;
+    });
 
-    // Shuffle moves to add variety if scores equal
-    const shuffledMoves = moves.sort(() => 0.5 - Math.random());
-
-    for (const move of shuffledMoves) {
+    for (const move of sortedMoves) {
       game.move(move);
-      // If Medium (Depth 1), we just eval board. If Hard (Depth 2), we call minimax with depth-1
-      const boardValue = difficulty === 'hard' 
-          ? minimaxChess(game, depth - 1, !isWhite) 
-          : evaluateBoard(game);
-      
+      const boardValue = minimaxChess(game, depth - 1, -Infinity, Infinity, !isWhite);
       game.undo();
 
       if (isWhite) {

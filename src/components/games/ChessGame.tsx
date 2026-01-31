@@ -7,7 +7,7 @@ import { ChessPieceIcons } from './ChessPieceIcons';
 interface Props {
   gameState: any; // { fen: string }
   isMyTurn: boolean;
-  isPlayer1: boolean;
+  isPlayer1: boolean; // Determines orientation: true = white at bottom, false = black at bottom
   onMove: (newState: any, nextTurnId: string, winnerId?: string) => void;
   player1Id: string;
   player2Id: string;
@@ -27,8 +27,21 @@ const getThemeColors = (themeId: string) => {
 
 export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onMove, player1Id, player2Id }) => {
   const [game, setGame] = useState(new Chess());
+  const [optionSquares, setOptionSquares] = useState<Record<string, any>>({});
   const { activeThemeId } = useApp();
   const ChessboardAny = Chessboard as any;
+  
+  // Update game instance when FEN changes from props
+  useEffect(() => {
+    if (gameState?.fen) {
+       try {
+         const newGame = new Chess(gameState.fen);
+         setGame(newGame);
+       } catch (e) {
+         console.error("Invalid FEN:", gameState.fen);
+       }
+    }
+  }, [gameState]);
 
   const customPieces = useMemo(() => {
     const pieces = ['p', 'n', 'b', 'r', 'q', 'k'];
@@ -72,68 +85,101 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
     return pieceComponents;
   }, [activeThemeId]);
 
-  useEffect(() => {
-    if (gameState?.fen) {
-      try {
-        const newGame = new Chess(gameState.fen);
-        setGame(newGame);
-      } catch (e) {
-        console.error("Invalid FEN:", gameState.fen);
-      }
+  function getMoveOptions(square: string) {
+    const moves = (game as any).moves({
+      square,
+      verbose: true,
+    });
+    if (moves.length === 0) {
+      setOptionSquares({});
+      return false;
     }
-  }, [gameState]);
+
+    const newSquares: Record<string, any> = {};
+    moves.map((move: any) => {
+      newSquares[move.to] = {
+        background:
+          game.get(move.to) && game.get(move.to)?.color !== game.get(square as any)?.color
+            ? 'radial-gradient(circle, rgba(255,0,0,.5) 25%, transparent 25%)'
+            : 'radial-gradient(circle, rgba(0,0,0,.5) 25%, transparent 25%)',
+        borderRadius: '50%',
+      };
+      return move;
+    });
+    newSquares[square] = {
+      background: 'rgba(255, 255, 0, 0.4)',
+    };
+    setOptionSquares(newSquares);
+    return true;
+  }
+
+  function onPieceDragBegin(piece: string, sourceSquare: string) {
+    if (!isMyTurn) return;
+    // Only allow moving own pieces
+    const pieceColor = piece[0]; // 'w' or 'b'
+    const myColor = isPlayer1 ? 'w' : 'b'; // Assuming isPlayer1=true means White
+    
+    // Check if orientation matches piece color
+    // If isPlayer1 is true, we are White. If piece starts with 'w', it's ours.
+    // If isPlayer1 is false, we are Black. If piece starts with 'b', it's ours.
+    if ((isPlayer1 && pieceColor !== 'w') || (!isPlayer1 && pieceColor !== 'b')) {
+        return;
+    }
+
+    getMoveOptions(sourceSquare);
+  }
+
+  function onPieceDragEnd() {
+    setOptionSquares({});
+  }
 
   function onDrop(sourceSquare: string, targetSquare: string) {
-    if (!isMyTurn) {
-        console.log("Not my turn!");
-        return false;
-    }
+    if (!isMyTurn) return false;
 
     try {
-      console.log("Attempting move:", sourceSquare, targetSquare, game.fen());
-      // Create a copy to manipulate
       const gameCopy = new Chess(game.fen());
-      
       const move = gameCopy.move({
         from: sourceSquare,
         to: targetSquare,
-        promotion: 'q', // always promote to queen for simplicity
+        promotion: 'q', 
       });
 
-      if (move === null) {
-          console.log("Invalid move according to chess.js");
-          return false;
-      }
+      if (move === null) return false;
 
-      // Move was valid, update local state IMMEDIATELY to prevent snapback
       setGame(gameCopy);
-
-      // Notify parent
+      
       const newFen = gameCopy.fen();
       const nextTurnId = isPlayer1 ? player2Id : player1Id;
-      
       let winnerId = undefined;
+      
       if (gameCopy.isCheckmate()) {
-        winnerId = isPlayer1 ? player1Id : player2Id; // I just moved, so I won
+        winnerId = isPlayer1 ? player1Id : player2Id; 
       }
       
       onMove({ fen: newFen }, nextTurnId, winnerId);
       return true;
     } catch (e) {
-      console.error("Move error:", e);
       return false;
     }
   }
 
   return (
     <div className="w-full max-w-[400px] aspect-square mx-auto">
-      <ChessboardAny 
+      <Chessboard 
+        // @ts-ignore
         position={game.fen()} 
         onPieceDrop={onDrop}
-        boardOrientation={(isPlayer1 ? 'white' : 'black') as 'white' | 'black'}
+        onPieceDragBegin={onPieceDragBegin}
+        onPieceDragEnd={onPieceDragEnd}
+        boardOrientation={isPlayer1 ? 'white' : 'black'}
         arePiecesDraggable={isMyTurn}
-        animationDuration={200}
+        customBoardStyle={{
+          borderRadius: '4px',
+          boxShadow: '0 5px 15px rgba(0, 0, 0, 0.5)',
+        }}
+        customSquareStyles={optionSquares}
         customPieces={customPieces}
+        animationDuration={200}
       />
     </div>
   );

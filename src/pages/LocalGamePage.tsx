@@ -32,7 +32,6 @@ export const LocalGamePage: React.FC = () => {
   
   const [isMyTurn, setIsMyTurn] = useState(true);
   const [gameStatus, setGameStatus] = useState<'playing' | 'finished'>('playing');
-  const [winner, setWinner] = useState<string | null>(null);
 
   // AI Turn Handling
   useEffect(() => {

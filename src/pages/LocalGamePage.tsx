@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Settings, Play, Trophy, User, Cpu } from 'lucide-react';
 import { TicTacToeGame } from '../components/games/TicTacToeGame';
 import { RPSGame } from '../components/games/RPSGame';
 import { ChessGame } from '../components/games/ChessGame';
 import { FreestyleChessGame } from '../components/games/FreestyleChessGame';
 import { Chess } from 'chess.js';
-import { getTicTacToeMove, getRPSMove, getChessMove, performFreestyleSetup, getFreestyleMove } from '../lib/gameAI';
+import { getTicTacToeMove, getRPSMove, getChessMove, performFreestyleSetup, getFreestyleMove, Difficulty } from '../lib/gameAI';
 
 export const LocalGamePage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const type = searchParams.get('type') as 'chess' | 'tictactoe' | 'rps' | 'freestyle_chess';
   
-  // Game States
+  // -- Setup / Lobby State --
+  const [setupComplete, setSetupComplete] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [playerSide, setPlayerSide] = useState<'white' | 'black' | 'random'>('random');
+
+  // -- Game States --
   const [tictactoeState, setTictactoeState] = useState<{ board: (string | null)[] }>({ board: Array(9).fill(null) });
   const [chessState, setChessState] = useState({ fen: new Chess().fen() });
   const [rpsState, setRpsState] = useState<{ moves: Record<string, string>, round: number }>({ moves: {}, round: 1 });
@@ -21,38 +26,36 @@ export const LocalGamePage: React.FC = () => {
   
   const [gameStatus, setGameStatus] = useState<'playing' | 'finished'>('playing');
   
-  // Chess specific: Player Color
-  // Initialize with random value directly to avoid race condition with useEffect
-  const [playerColor, setPlayerColor] = useState<'white' | 'black'>(() => {
+  // Actual active player color (resolved from random)
+  const [activePlayerColor, setActivePlayerColor] = useState<'white' | 'black'>('white');
+  const [isMyTurn, setIsMyTurn] = useState(true);
+
+  // -- Initialization Logic --
+  const startGame = () => {
+    // Reset States
+    setTictactoeState({ board: Array(9).fill(null) });
+    setChessState({ fen: new Chess().fen() });
+    setRpsState({ moves: {}, round: 1 });
+    setFreestyleState({});
+    setGameStatus('playing');
+
     if (type === 'chess') {
-        return Math.random() > 0.5 ? 'white' : 'black';
+        const color = playerSide === 'random' ? (Math.random() > 0.5 ? 'white' : 'black') : playerSide;
+        setActivePlayerColor(color);
+        setIsMyTurn(color === 'white');
+    } else {
+        setIsMyTurn(true);
     }
-    return 'white';
-  });
+    setSetupComplete(true);
+  };
 
-  const [isMyTurn, setIsMyTurn] = useState(() => {
-    // If we are initializing chess, we can't easily know the result of the random call above in this scope safely 
-    // without potentially diverging if we called Math.random() again.
-    // However, since we use `playerColor` in the useEffect to correct it, we can start with true.
-    // BUT, if player is Black, they start with true, then useEffect flips to false.
-    // This allows them to drag for 1ms.
-    // BETTER: Use a single state object for initialization.
-    return true; 
-  });
-   
-  // Sync turn with color immediately
+  // -- AI Logic --
   useEffect(() => {
-     if (type === 'chess') {
-         setIsMyTurn(playerColor === 'white');
-     }
-  }, [playerColor, type]);
+    if (!setupComplete) return;
 
-  // AI Turn Handling
-  useEffect(() => {
-    // Check if it's CPU's turn or CPU needs to act
     let shouldAct = !isMyTurn && gameStatus === 'playing';
     
-    // Special case for Freestyle: CPU needs to setup even if game not "started" (setup phase)
+    // Freestyle setup check
     if (type === 'freestyle_chess' && freestyleState.setup && !freestyleState.setup.cpu?.ready) {
       shouldAct = true;
     }
@@ -60,27 +63,31 @@ export const LocalGamePage: React.FC = () => {
     if (shouldAct) {
       const timer = setTimeout(() => {
         makeAIMove();
-      }, 1000); // 1s delay for "thinking"
+      }, 1000); 
       return () => clearTimeout(timer);
     }
-  }, [isMyTurn, gameStatus, freestyleState, type]);
+  }, [isMyTurn, gameStatus, freestyleState, type, setupComplete]);
 
   const makeAIMove = () => {
     if (type === 'tictactoe') {
-      const moveIdx = getTicTacToeMove(tictactoeState.board);
+      const moveIdx = getTicTacToeMove(tictactoeState.board, difficulty);
       if (moveIdx !== -1) {
         const newBoard = [...tictactoeState.board];
-        newBoard[moveIdx] = 'O'; // AI is O
+        newBoard[moveIdx] = 'O'; 
         setTictactoeState({ board: newBoard });
         setIsMyTurn(true);
       }
     } else if (type === 'rps') {
-      const aiMove = getRPSMove();
+        // Collect history for AI
+        // We only have current state. ideally we store history in state.
+        // For now pass empty history or simple logic.
+        // Let's improve RPS state later to include history array.
+      const aiMove = getRPSMove([], difficulty); 
       const newMoves = { ...rpsState.moves, 'cpu': aiMove };
       setRpsState({ ...rpsState, moves: newMoves });
       setIsMyTurn(true);
     } else if (type === 'chess') {
-      const aiMove = getChessMove(chessState.fen);
+      const aiMove = getChessMove(chessState.fen, difficulty);
       if (aiMove) {
         const game = new Chess(chessState.fen);
         game.move(aiMove);
@@ -91,18 +98,13 @@ export const LocalGamePage: React.FC = () => {
       }
     } else if (type === 'freestyle_chess') {
       if (!freestyleState.setup) return;
-
-      // 1. Setup Phase
       if (!freestyleState.setup.cpu.ready) {
         const newState = performFreestyleSetup(freestyleState, 'cpu');
         setFreestyleState(newState);
         return;
       }
-
-      // 2. Gameplay Phase
-      // Only move if it is actually CPU's turn
       if (freestyleState.turn === 'cpu') {
-        const result = getFreestyleMove(freestyleState, 'cpu');
+        const result = getFreestyleMove(freestyleState, 'cpu', difficulty);
         if (result) {
           const stateWithTurn = { ...result.newState, turn: 'player' };
           setFreestyleState(stateWithTurn);
@@ -142,33 +144,105 @@ export const LocalGamePage: React.FC = () => {
     }
   };
 
+  // -- Renders --
+
+  if (!setupComplete) {
+      return (
+          <div className="h-[calc(100vh-120px)] flex flex-col items-center justify-center p-6 animate-in zoom-in-95 duration-300">
+              <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full border border-gray-100">
+                  <div className="flex justify-center mb-6">
+                      <div className="p-4 bg-blue-100 rounded-full text-blue-600">
+                          {type === 'chess' && <Trophy size={48} />}
+                          {type === 'freestyle_chess' && <CrownIcon size={48} />}
+                          {type === 'tictactoe' && <GridIcon size={48} />}
+                          {type === 'rps' && <HandIcon size={48} />}
+                      </div>
+                  </div>
+                  
+                  <h2 className="text-2xl font-bold text-center mb-2 text-gray-800">
+                      {type === 'chess' && 'Schach Konfigurator'}
+                      {type === 'freestyle_chess' && 'Freestyle Setup'}
+                      {type === 'tictactoe' && 'Tic-Tac-Toe Setup'}
+                      {type === 'rps' && 'RPS Arena'}
+                  </h2>
+                  <p className="text-center text-gray-500 mb-8">Wähle deine Einstellungen</p>
+
+                  <div className="space-y-6">
+                      {/* Difficulty */}
+                      <div>
+                          <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                              <Cpu size={16} /> Schwierigkeitsgrad
+                          </label>
+                          <div className="grid grid-cols-3 gap-2">
+                              {(['easy', 'medium', 'hard'] as const).map((d) => (
+                                  <button
+                                      key={d}
+                                      onClick={() => setDifficulty(d)}
+                                      className={`py-2 px-3 rounded-lg text-sm font-bold capitalize transition-all ${
+                                          difficulty === d 
+                                          ? (d === 'hard' ? 'bg-red-500 text-white' : d === 'medium' ? 'bg-yellow-500 text-white' : 'bg-green-500 text-white')
+                                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                      }`}
+                                  >
+                                      {d === 'easy' ? 'Einfach' : d === 'medium' ? 'Mittel' : 'Schwer'}
+                                  </button>
+                              ))}
+                          </div>
+                      </div>
+
+                      {/* Side Selection (Chess Only) */}
+                      {type === 'chess' && (
+                          <div>
+                              <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                  <User size={16} /> Deine Farbe
+                              </label>
+                              <div className="grid grid-cols-3 gap-2">
+                                  <button onClick={() => setPlayerSide('white')} className={`py-2 rounded-lg text-sm font-bold ${playerSide === 'white' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'}`}>Weiß</button>
+                                  <button onClick={() => setPlayerSide('random')} className={`py-2 rounded-lg text-sm font-bold ${playerSide === 'random' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'}`}>Zufall</button>
+                                  <button onClick={() => setPlayerSide('black')} className={`py-2 rounded-lg text-sm font-bold ${playerSide === 'black' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600'}`}>Schwarz</button>
+                              </div>
+                          </div>
+                      )}
+
+                      <button 
+                          onClick={startGame}
+                          className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transform transition-all hover:-translate-y-1 flex items-center justify-center gap-2"
+                      >
+                          <Play size={24} fill="currentColor" /> Spiel Starten
+                      </button>
+                  </div>
+              </div>
+              <button onClick={() => navigate('/games')} className="mt-8 text-white/80 hover:text-white flex items-center gap-2">
+                  <ArrowLeft size={16} /> Zurück zur Übersicht
+              </button>
+          </div>
+      );
+  }
+
+  // Active Game View
   return (
     <div className="space-y-6 animate-in fade-in duration-500 h-[calc(100vh-120px)] flex flex-col">
       <div className="flex items-center justify-between">
         <button 
-          onClick={() => navigate('/games')}
+          onClick={() => setSetupComplete(false)}
           className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full text-white transition-colors"
+          title="Setup ändern"
         >
-          <ArrowLeft size={20} />
+          <Settings size={20} />
         </button>
         <div className="text-center">
-          <h2 className="text-xl font-bold text-white drop-shadow-md uppercase tracking-wider">
-            {type === 'tictactoe' && 'Tic-Tac-Toe vs CPU'}
-            {type === 'chess' && `Schach vs CPU (${playerColor === 'white' ? 'Weiß' : 'Schwarz'})`}
-            {type === 'rps' && 'RPS vs CPU'}
-            {type === 'freestyle_chess' && 'Freestyle Chess vs CPU'}
+          <h2 className="text-xl font-bold text-white drop-shadow-md uppercase tracking-wider flex items-center gap-2 justify-center">
+             {type === 'chess' && `Schach (${difficulty})`}
+             {type !== 'chess' && `${type} (${difficulty})`}
           </h2>
           <p className="text-xs text-white/80">
-            {gameStatus === 'finished' ? 'Spiel beendet' : (
-              type === 'freestyle_chess' && freestyleState.setup && (!freestyleState.setup.player?.ready || !freestyleState.setup.cpu?.ready) 
-                ? 'Setup Phase...' 
-                : (isMyTurn ? 'Du bist dran' : 'Computer überlegt...')
-            )}
+            {gameStatus === 'finished' ? 'Spiel beendet' : (isMyTurn ? 'Du bist dran' : 'Computer überlegt...')}
           </p>
         </div>
         <button 
-           onClick={() => window.location.reload()}
+           onClick={() => startGame()}
            className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full text-white transition-colors"
+           title="Neustart"
         >
           <RefreshCw size={20} />
         </button>
@@ -188,9 +262,9 @@ export const LocalGamePage: React.FC = () => {
           <ChessGame 
             gameState={chessState}
             isMyTurn={isMyTurn}
-            isPlayer1={playerColor === 'white'} // If white, I am Player 1
-            player1Id={playerColor === 'white' ? 'player' : 'cpu'}
-            player2Id={playerColor === 'white' ? 'cpu' : 'player'}
+            isPlayer1={activePlayerColor === 'white'} 
+            player1Id={activePlayerColor === 'white' ? 'player' : 'cpu'}
+            player2Id={activePlayerColor === 'white' ? 'cpu' : 'player'}
             onMove={(newState) => handlePlayerMove(newState)}
           />
         )}
@@ -219,3 +293,8 @@ export const LocalGamePage: React.FC = () => {
     </div>
   );
 };
+
+// Icons placeholders
+const CrownIcon = ({ size }: { size: number }) => <Trophy size={size} />; 
+const GridIcon = ({ size }: { size: number }) => <div style={{width: size, height: size, border: '2px solid currentColor'}} />;
+const HandIcon = ({ size }: { size: number }) => <div style={{width: size, height: size, borderRadius: '50%', border: '2px solid currentColor'}} />;

@@ -24,49 +24,6 @@ export interface BoardState {
   };
 }
 
-// Helper to create initial pieces
-// We assume standard 8x8. 
-// Player 1 (White/Bottom) -> Rows 6, 7
-// Player 2 (Black/Top) -> Rows 0, 1
-// King at E1 (Player 1) and E8 (Player 2)
-// Actually let's use simplified coords: 0,0 is top left.
-// Player 2 (Top): Rows 0, 1. King at (0, 4)
-// Player 1 (Bottom): Rows 6, 7. King at (7, 4)
-
-export const createInitialState = (player1Id: string, player2Id: string): BoardState => {
-  const pieces: Piece[] = [];
-  
-  // Helper to add pieces
-  const addPiece = (owner: string, row: number, col: number, type: PieceType) => {
-    pieces.push({
-      id: `${owner}-${row}-${col}`,
-      owner,
-      type,
-      role: 'rock', // Placeholder, will be randomized/set later
-      revealed: false,
-      hasFlag: false,
-      isDead: false,
-      // We need position stored in piece or just infer from index?
-      // Better store position in piece for easy access
-      // But wait, if we move them, we need to update position.
-      // Let's add position to Piece interface or map it separately.
-      // Ideally Piece has position.
-    });
-  };
-
-  // But wait, the interface above didn't have position. Let's add it.
-  // I will redefine the interface below with position.
-  return {
-    pieces: [], // Filled by init function with correct type
-    rows: 8,
-    cols: 8,
-    setupPhase: {
-      [player1Id]: { ready: false, piecesSet: false },
-      [player2Id]: { ready: false, piecesSet: false }
-    }
-  };
-};
-
 // Re-defining properly with position
 export interface PieceWithPos extends Piece {
   row: number;

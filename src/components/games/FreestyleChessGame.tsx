@@ -117,7 +117,7 @@ export const FreestyleChessGame: React.FC<Props> = ({
 
     if (target) {
       // COMBAT
-      const { winner, loser, draw } = resolveCombat(piece, target);
+      const { winner, draw } = resolveCombat(piece, target);
       
       // Reveal roles
       newBoard[pIndex].revealed = true;
@@ -244,7 +244,7 @@ export const FreestyleChessGame: React.FC<Props> = ({
   );
 };
 
-const PieceComponent: React.FC<{ piece: PieceWithPos, isMine: boolean, gameStarted: boolean }> = ({ piece, isMine, gameStarted }) => {
+const PieceComponent: React.FC<{ piece: PieceWithPos, isMine: boolean, gameStarted: boolean }> = ({ piece, isMine }) => {
   // Logic for displaying icon
   // If Mine: Show Role + Flag (if set)
   // If Enemy: Show '?' unless revealed

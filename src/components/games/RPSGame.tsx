@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { clsx } from 'clsx';
 import { Hand, Scissors, Square } from 'lucide-react';
 
@@ -10,8 +10,6 @@ interface Props {
 }
 
 export const RPSGame: React.FC<Props> = ({ gameState, myPlayerId, onMove }) => {
-  const [selectedMove, setSelectedMove] = useState<string | null>(null);
-
   // Determine which player I am relative to state
   // This requires parent to pass player1Id/player2Id or we infer from somewhere.
   // Actually, we can just store moves by playerId in the state map?

@@ -77,6 +77,7 @@ export const GameLobbyPage: React.FC = () => {
       case 'chess': return 'Schach';
       case 'tictactoe': return 'Tic-Tac-Toe';
       case 'rps': return 'Schere Stein Papier';
+      case 'freestyle_chess': return 'Freestyle Chess';
       default: return 'Spiel';
     }
   };

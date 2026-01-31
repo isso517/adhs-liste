@@ -249,7 +249,7 @@ export const GamesPage: React.FC = () => {
                <Users size={16} /> vs Freund
              </button>
              <button onClick={() => startNewGame('rps', 'pvc')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
-               <Monitor size={16} /> vs CPU
+               <Brain size={16} /> vs CPU
              </button>
            </div>
         </div>

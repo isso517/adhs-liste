@@ -29,6 +29,7 @@ const App: React.FC = () => {
               <Route path="friend/:id" element={<FriendProfilePage />} />
               <Route path="games" element={<GamesPage />} />
               <Route path="games/new" element={<GameLobbyPage />} />
+              <Route path="game/local" element={<LocalGamePage />} />
               <Route path="game/:id" element={<GameBoardPage />} />
               <Route path="points" element={<PointsPage />} />
               <Route path="achievements" element={<AchievementsPage />} />

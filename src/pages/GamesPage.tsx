@@ -167,57 +167,89 @@ export const GamesPage: React.FC = () => {
 
       {/* Game Selection */}
       <div className="grid grid-cols-1 gap-4">
-        <button 
-          onClick={() => startNewGame('freestyle_chess')}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:scale-[1.02] transition-transform group"
-        >
-          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-            <Crown size={32} />
-          </div>
-          <div className="text-left">
-            <h3 className="text-lg font-bold text-gray-800">Freestyle Chess</h3>
-            <p className="text-sm text-gray-500">Strategie mit verdeckten Rollen.</p>
-          </div>
-        </button>
+        {/* Freestyle Chess */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+           <div className="p-6 flex items-center gap-4">
+            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+              <Crown size={32} />
+            </div>
+            <div className="text-left flex-1">
+              <h3 className="text-lg font-bold text-gray-800">Freestyle Chess</h3>
+              <p className="text-sm text-gray-500">Strategie mit verdeckten Rollen.</p>
+            </div>
+           </div>
+           <div className="flex border-t border-gray-100">
+             <button onClick={() => startNewGame('freestyle_chess', 'pvp')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2 border-r border-gray-100">
+               <Users size={16} /> vs Freund
+             </button>
+             <button onClick={() => startNewGame('freestyle_chess', 'pvc')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+               <Monitor size={16} /> vs CPU
+             </button>
+           </div>
+        </div>
 
-        <button 
-          onClick={() => startNewGame('chess')}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:scale-[1.02] transition-transform group"
-        >
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-            <Brain size={32} />
-          </div>
-          <div className="text-left">
-            <h3 className="text-lg font-bold text-gray-800">Schach</h3>
-            <p className="text-sm text-gray-500">Der Klassiker. Strategie pur.</p>
-          </div>
-        </button>
+        {/* Chess */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+           <div className="p-6 flex items-center gap-4">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+              <Brain size={32} />
+            </div>
+            <div className="text-left flex-1">
+              <h3 className="text-lg font-bold text-gray-800">Schach</h3>
+              <p className="text-sm text-gray-500">Der Klassiker. Strategie pur.</p>
+            </div>
+           </div>
+           <div className="flex border-t border-gray-100">
+             <button onClick={() => startNewGame('chess', 'pvp')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2 border-r border-gray-100">
+               <Users size={16} /> vs Freund
+             </button>
+             <button onClick={() => startNewGame('chess', 'pvc')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+               <Monitor size={16} /> vs CPU
+             </button>
+           </div>
+        </div>
 
-        <button 
-          onClick={() => startNewGame('tictactoe')}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:scale-[1.02] transition-transform group"
-        >
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors">
-            <Sword size={32} />
-          </div>
-          <div className="text-left">
-            <h3 className="text-lg font-bold text-gray-800">Tic-Tac-Toe</h3>
-            <p className="text-sm text-gray-500">Schnell und spaßig.</p>
-          </div>
-        </button>
+        {/* Tic Tac Toe */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+           <div className="p-6 flex items-center gap-4">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+              <Sword size={32} />
+            </div>
+            <div className="text-left flex-1">
+              <h3 className="text-lg font-bold text-gray-800">Tic-Tac-Toe</h3>
+              <p className="text-sm text-gray-500">Schnell und spaßig.</p>
+            </div>
+           </div>
+           <div className="flex border-t border-gray-100">
+             <button onClick={() => startNewGame('tictactoe', 'pvp')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2 border-r border-gray-100">
+               <Users size={16} /> vs Freund
+             </button>
+             <button onClick={() => startNewGame('tictactoe', 'pvc')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+               <Monitor size={16} /> vs CPU
+             </button>
+           </div>
+        </div>
 
-        <button 
-          onClick={() => startNewGame('rps')}
-          className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:scale-[1.02] transition-transform group"
-        >
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-            <Hand size={32} />
-          </div>
-          <div className="text-left">
-            <h3 className="text-lg font-bold text-gray-800">Schere Stein Papier</h3>
-            <p className="text-sm text-gray-500">Entscheide es wie Männer.</p>
-          </div>
-        </button>
+        {/* RPS */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+           <div className="p-6 flex items-center gap-4">
+            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+              <Hand size={32} />
+            </div>
+            <div className="text-left flex-1">
+              <h3 className="text-lg font-bold text-gray-800">Schere Stein Papier</h3>
+              <p className="text-sm text-gray-500">Entscheide es wie Männer.</p>
+            </div>
+           </div>
+           <div className="flex border-t border-gray-100">
+             <button onClick={() => startNewGame('rps', 'pvp')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2 border-r border-gray-100">
+               <Users size={16} /> vs Freund
+             </button>
+             <button onClick={() => startNewGame('rps', 'pvc')} className="flex-1 p-3 text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2">
+               <Monitor size={16} /> vs CPU
+             </button>
+           </div>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { CheckSquare, ShoppingBag, User, Coins, Sparkles, Calendar, CalendarDays, Users } from 'lucide-react';
+import { CheckSquare, ShoppingBag, User, Coins, Sparkles, Calendar, CalendarDays, Users, Gamepad2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { clsx } from 'clsx';
 
@@ -11,6 +11,7 @@ export const Layout: React.FC = () => {
   const navItems = [
     { to: '/', icon: CheckSquare, label: 'Täglich' },
     { to: '/weekly', icon: Calendar, label: 'Woche' },
+    { to: '/games', icon: Gamepad2, label: 'Spiele' },
     { to: '/monthly', icon: CalendarDays, label: 'Monat' },
     { to: '/friends', icon: Users, label: 'Freunde' },
     { to: '/points', icon: ShoppingBag, label: 'Shop' },

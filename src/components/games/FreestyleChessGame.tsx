@@ -109,7 +109,8 @@ export const FreestyleChessGame: React.FC<Props> = ({
     let newBoard = [...localState.board];
     let log = [...localState.log];
     let winnerId: string | undefined = undefined;
-    let nextTurn = myPlayerId === player1Id ? player2Id : player1Id;
+    // Determine next turn: if current is player1, next is player2
+    const nextTurn = localState.turn === player1Id ? player2Id : player1Id;
 
     // Update piece position
     const pIndex = newBoard.findIndex(p => p.id === piece.id);
@@ -138,7 +139,6 @@ export const FreestyleChessGame: React.FC<Props> = ({
         newBoard[pIndex].isDead = true;
         log.push(`Verteidiger gewinnt!`);
         if (piece.hasFlag) winnerId = target.owner; // Attacker lost flag carrier? No, flag carrier doesn't die if attacking unless it loses.
-        // Wait, if I attack with flag carrier and lose, I lose game?
         // "Wird die Flaggenfigur geschlagen, endet das Spiel sofort" -> Yes.
       }
     }
@@ -146,7 +146,7 @@ export const FreestyleChessGame: React.FC<Props> = ({
     // Check Flag captured (Attacker moved to empty square? No flag capture there)
     // Only combat captures flags.
 
-    onMove({ ...localState, board: newBoard, log }, nextTurn, winnerId);
+    onMove({ ...localState, board: newBoard, log, turn: nextTurn }, nextTurn, winnerId);
   };
 
   // --- RENDER HELPERS ---

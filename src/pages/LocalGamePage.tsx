@@ -14,17 +14,27 @@ export const LocalGamePage: React.FC = () => {
   const type = searchParams.get('type') as 'chess' | 'tictactoe' | 'rps' | 'freestyle_chess';
   
   // Game States
-  // TicTacToe: { board: (string|null)[] }
   const [tictactoeState, setTictactoeState] = useState<{ board: (string | null)[] }>({ board: Array(9).fill(null) });
-  // Chess: { fen: string }
   const [chessState, setChessState] = useState({ fen: new Chess().fen() });
-  // RPS: { moves: Record<string, string>, round: number }
   const [rpsState, setRpsState] = useState<{ moves: Record<string, string>, round: number }>({ moves: {}, round: 1 });
-  // Freestyle: GameState (initially empty)
   const [freestyleState, setFreestyleState] = useState<any>({});
   
   const [isMyTurn, setIsMyTurn] = useState(true);
   const [gameStatus, setGameStatus] = useState<'playing' | 'finished'>('playing');
+  
+  // Chess specific: Player Color
+  const [playerColor, setPlayerColor] = useState<'white' | 'black'>('white');
+
+  // Initialization
+  useEffect(() => {
+    if (type === 'chess') {
+      const isWhite = Math.random() > 0.5;
+      setPlayerColor(isWhite ? 'white' : 'black');
+      setIsMyTurn(isWhite); // White starts
+    } else {
+      setIsMyTurn(true); // Default for other games
+    }
+  }, [type]);
 
   // AI Turn Handling
   useEffect(() => {
@@ -66,7 +76,6 @@ export const LocalGamePage: React.FC = () => {
         setChessState({ fen: game.fen() });
         setIsMyTurn(true);
       } else {
-        // No moves? Checkmate or Stalemate
         setGameStatus('finished');
       }
     } else if (type === 'freestyle_chess') {
@@ -76,8 +85,6 @@ export const LocalGamePage: React.FC = () => {
       if (!freestyleState.setup.cpu.ready) {
         const newState = performFreestyleSetup(freestyleState, 'cpu');
         setFreestyleState(newState);
-        // Don't change turn yet, just update state. 
-        // If player is also ready, the game starts, and turn is P1 (player).
         return;
       }
 
@@ -86,12 +93,6 @@ export const LocalGamePage: React.FC = () => {
       if (freestyleState.turn === 'cpu') {
         const result = getFreestyleMove(freestyleState, 'cpu');
         if (result) {
-          setFreestyleState(result.newState);
-          // Turn logic handled by state (newState.turn should be updated? 
-          // getFreestyleMove logic updates pieces. We need to update TURN too.
-          // Wait, getFreestyleMove didn't update turn.
-          // We need to do it here or in helper.
-          // Let's manually toggle turn here for safety.
           const stateWithTurn = { ...result.newState, turn: 'player' };
           setFreestyleState(stateWithTurn);
           setIsMyTurn(true);
@@ -118,15 +119,10 @@ export const LocalGamePage: React.FC = () => {
       setIsMyTurn(false);
     } else if (type === 'freestyle_chess') {
       setFreestyleState(newState);
-      // Update isMyTurn based on nextTurnId
       if (nextTurnId) {
         setIsMyTurn(nextTurnId === 'player');
       } else {
-        // If no nextTurnId passed, assume turn switch?
-        // FreestyleChessGame passes nextTurnId.
-        // If undefined (e.g. setup phase), don't change isMyTurn blindly.
         if (freestyleState.setup?.player?.ready && freestyleState.setup?.cpu?.ready) {
-             // Game is running. If nextTurnId is missing, check state.turn
              if (newState.turn) {
                 setIsMyTurn(newState.turn === 'player');
              }
@@ -147,7 +143,7 @@ export const LocalGamePage: React.FC = () => {
         <div className="text-center">
           <h2 className="text-xl font-bold text-white drop-shadow-md uppercase tracking-wider">
             {type === 'tictactoe' && 'Tic-Tac-Toe vs CPU'}
-            {type === 'chess' && 'Schach vs CPU'}
+            {type === 'chess' && `Schach vs CPU (${playerColor === 'white' ? 'Weiß' : 'Schwarz'})`}
             {type === 'rps' && 'RPS vs CPU'}
             {type === 'freestyle_chess' && 'Freestyle Chess vs CPU'}
           </h2>
@@ -181,9 +177,9 @@ export const LocalGamePage: React.FC = () => {
           <ChessGame 
             gameState={chessState}
             isMyTurn={isMyTurn}
-            isPlayer1={true}
-            player1Id="player"
-            player2Id="cpu"
+            isPlayer1={playerColor === 'white'} // If white, I am Player 1
+            player1Id={playerColor === 'white' ? 'player' : 'cpu'}
+            player2Id={playerColor === 'white' ? 'cpu' : 'player'}
             onMove={(newState) => handlePlayerMove(newState)}
           />
         )}

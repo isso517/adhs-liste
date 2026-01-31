@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import { isValidMove, resolveCombat } from './freestyleChess';
-import type { GameState, PieceWithPos, Role } from './freestyleChess';
+import type { GameState, PieceWithPos } from './freestyleChess';
 
 // Tic-Tac-Toe AI
 export const getTicTacToeMove = (board: (string | null)[]) => {

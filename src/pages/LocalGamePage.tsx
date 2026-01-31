@@ -125,6 +125,12 @@ export const LocalGamePage: React.FC = () => {
         // If no nextTurnId passed, assume turn switch?
         // FreestyleChessGame passes nextTurnId.
         // If undefined (e.g. setup phase), don't change isMyTurn blindly.
+        if (freestyleState.setup?.player?.ready && freestyleState.setup?.cpu?.ready) {
+             // Game is running. If nextTurnId is missing, check state.turn
+             if (newState.turn) {
+                setIsMyTurn(newState.turn === 'player');
+             }
+        }
       }
     }
   };

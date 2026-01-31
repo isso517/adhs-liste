@@ -27,9 +27,13 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
   }, [gameState]);
 
   function onDrop(sourceSquare: string, targetSquare: string) {
-    if (!isMyTurn) return false;
+    if (!isMyTurn) {
+        console.log("Not my turn!");
+        return false;
+    }
 
     try {
+      console.log("Attempting move:", sourceSquare, targetSquare, game.fen());
       // Create a copy to manipulate
       const gameCopy = new Chess(game.fen());
       
@@ -39,7 +43,10 @@ export const ChessGame: React.FC<Props> = ({ gameState, isMyTurn, isPlayer1, onM
         promotion: 'q', // always promote to queen for simplicity
       });
 
-      if (move === null) return false;
+      if (move === null) {
+          console.log("Invalid move according to chess.js");
+          return false;
+      }
 
       // Move was valid, update local state IMMEDIATELY to prevent snapback
       setGame(gameCopy);

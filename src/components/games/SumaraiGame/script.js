@@ -2,41 +2,15 @@ const SYMBOLS = {
     e: ''
 };
 
-const STORAGE_KEY = 'samurai-state-v1';
-const USER_KEY = 'samurai-user-v1';
-const LOBBY_KEY = 'samurai-lobby-v1';
-const CHANNEL_NAME = 'samurai-realtime-v1';
-
-const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
-
 function createId() {
     return `${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-5)}`;
 }
 
-function loadState() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-        return { users: {}, lobbies: {}, updatedAt: Date.now() };
-    }
-    try {
-        return JSON.parse(raw);
-    } catch {
-        return { users: {}, lobbies: {}, updatedAt: Date.now() };
-    }
-}
-
-function saveState(state) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if (channel) {
-        channel.postMessage({ type: 'state', updatedAt: state.updatedAt });
-    }
-}
-
 function updateState(updater) {
-    const current = loadState();
+    const current = state;
     const next = updater(current) || current;
     next.updatedAt = Date.now();
-    saveState(next);
+    state = next;
     return next;
 }
 
@@ -611,6 +585,10 @@ class Game {
 
         if (targetCell) {
             const result = this.resolveBattle(movingPiece.type, targetCell.type, movingPiece, targetCell);
+
+            if (this.multiplayer && supabaseClient && currentLobbyId) {
+                applyMoveRealtime(currentLobbyId, [fromRow, fromCol], [toRow, toCol], this.turnIndex ?? 0, result === 'duel');
+            }
             
             if (result === 'duel') {
                 if (this.multiplayer) {
@@ -639,6 +617,9 @@ class Game {
                 this.completeBattle(fromRow, fromCol, toRow, toCol, result);
             });
         } else {
+            if (this.multiplayer && supabaseClient && currentLobbyId) {
+                applyMoveRealtime(currentLobbyId, [fromRow, fromCol], [toRow, toCol], this.turnIndex ?? 0, false);
+            }
             this.board[toRow][toCol] = movingPiece;
             this.board[fromRow][fromCol] = null;
             this.selectedCell = null;
@@ -1054,43 +1035,167 @@ const p1PenaltiesEl = document.getElementById('p1-penalties');
 const p2PenaltiesEl = document.getElementById('p2-penalties');
 const leaveLobbyBtn = document.getElementById('leave-lobby');
 
-let state = loadState();
+let state = { users: {}, lobbies: {}, updatedAt: Date.now() };
 let currentUser = null;
-let currentLobbyId = localStorage.getItem(LOBBY_KEY);
+let currentLobbyId = null;
 let game = null;
 let timerHandle = null;
 let turnTimerHandle = null;
+const supabaseClient =
+    window.__supabaseClient
+        ? window.__supabaseClient
+        : window.supabase?.createClient && window.SUPABASE_URL && window.SUPABASE_ANON_KEY
+            ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
+            : null;
+let lobbySub = null;
+let gameSub = null;
 
 function loadUser() {
-    const raw = localStorage.getItem(USER_KEY);
-    if (!raw) return null;
-    try {
-        return JSON.parse(raw);
-    } catch {
-        return null;
-    }
+    return null;
 }
 
 function saveUser(user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    return;
 }
 
-function syncStateFromStorage() {
-    state = loadState();
+async function refreshLobbiesFromDb() {
+    if (!supabaseClient) return;
+    const { data: lobbies } = await supabaseClient.from("lobbies").select("*");
+    const { data: players } = await supabaseClient.from("lobby_members").select("*");
+    const { data: games } = await supabaseClient.from("games").select("*");
+
+    const lobbyMap = {};
+    (lobbies || []).forEach(lobby => {
+        lobbyMap[lobby.id] = {
+            id: lobby.id,
+            name: lobby.name,
+            status: lobby.status,
+            createdAt: new Date(lobby.created_at).getTime(),
+            setupEndsAt: lobby.setup_ends_at ? new Date(lobby.setup_ends_at).getTime() : null,
+            players: [],
+            gameState: null,
+            gameId: null,
+            setupConfirmed: {},
+            setups: {}
+        };
+    });
+
+    (players || []).forEach(player => {
+        if (!lobbyMap[player.lobby_id]) return;
+        lobbyMap[player.lobby_id].players.push(player.user_id);
+    });
+
+    (games || []).forEach(game => {
+        const lobbyId = game.lobby_id;
+        if (!lobbyMap[lobbyId]) return;
+        lobbyMap[lobbyId].gameState = game.state_json;
+        lobbyMap[lobbyId].gameId = game.id;
+        lobbyMap[lobbyId].setupConfirmed = game.state_json?.setupConfirmed || {};
+        lobbyMap[lobbyId].setups = game.state_json?.setups || {};
+    });
+
+    state.lobbies = lobbyMap;
     renderAll();
 }
 
-if (channel) {
-    channel.onmessage = () => {
-        syncStateFromStorage();
-    };
+function subscribeLobbies() {
+    if (!supabaseClient) return;
+    if (lobbySub) supabaseClient.removeChannel(lobbySub);
+
+    lobbySub = supabaseClient
+        .channel("lobbies")
+        .on("postgres_changes", { event: "*", schema: "public", table: "lobbies" }, async () => {
+            await refreshLobbiesFromDb();
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "lobby_members" }, async () => {
+            await refreshLobbiesFromDb();
+        })
+        .subscribe();
 }
 
-window.addEventListener('storage', event => {
-    if (event.key === STORAGE_KEY) {
-        syncStateFromStorage();
+function subscribeGame(lobbyId) {
+    if (!supabaseClient) return;
+    if (gameSub) supabaseClient.removeChannel(gameSub);
+
+    gameSub = supabaseClient
+        .channel(`games:${lobbyId}`)
+        .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "games", filter: `lobby_id=eq.${lobbyId}` },
+            payload => {
+                const game = payload.new;
+                if (!game || !state.lobbies[lobbyId]) return;
+                state.lobbies[lobbyId].gameState = game.state_json;
+                state.lobbies[lobbyId].gameId = game.id;
+                state.lobbies[lobbyId].setupConfirmed = game.state_json?.setupConfirmed || {};
+                state.lobbies[lobbyId].setups = game.state_json?.setups || {};
+                renderAll();
+            }
+        )
+        .subscribe();
+}
+
+async function realtimeInit() {
+    if (!supabaseClient) return;
+    await refreshLobbiesFromDb();
+    subscribeLobbies();
+}
+
+async function joinLobbyRealtime(lobbyId) {
+    if (!supabaseClient) return;
+    await fetch("/functions/v1/join_lobby", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lobbyId, userId: currentUser.id })
+    });
+}
+
+async function confirmSetupRealtime(lobbyId, setup) {
+    if (!supabaseClient) return;
+    await fetch("/functions/v1/confirm_setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lobbyId, userId: currentUser.id, setup })
+    });
+}
+
+async function applyMoveRealtime(lobbyId, from, to, turnIndex, duel) {
+    if (!supabaseClient) return;
+    await fetch("/functions/v1/apply_move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lobbyId, userId: currentUser.id, from, to, turnIndex, duel })
+    });
+}
+
+async function createLobbyRealtime(lobbyName) {
+    if (!supabaseClient || !currentUser) return;
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const { data } = await supabaseClient
+        .from("lobbies")
+        .insert({ name: lobbyName, owner_id: currentUser.id, code })
+        .select()
+        .single();
+    if (data?.id) {
+        await joinLobbyRealtime(data.id);
+        currentLobbyId = data.id;
+        lobbyNameInput.value = '';
+        subscribeGame(data.id);
+        await refreshLobbiesFromDb();
     }
-});
+}
+
+async function leaveLobbyRealtime() {
+    if (!supabaseClient || !currentLobbyId || !currentUser) return;
+    await supabaseClient
+        .from("lobby_members")
+        .delete()
+        .eq("lobby_id", currentLobbyId)
+        .eq("user_id", currentUser.id);
+    currentLobbyId = null;
+    game = null;
+    await refreshLobbiesFromDb();
+}
 
 function renderLobbyList(container, lobbies) {
     container.innerHTML = '';
@@ -1226,9 +1331,11 @@ function startLobbySession(lobby) {
             multiplayer: true,
             playerNumber,
             initialState: lobby.gameState || createNewGameState(),
-            onStateChange: nextState => {
-                updateLobbyGameState(lobby.id, nextState);
-            },
+            onStateChange: supabaseClient
+                ? null
+                : nextState => {
+                      updateLobbyGameState(lobby.id, nextState);
+                  },
             onGameEnd: winner => {
                 recordWin(lobby.id, winner);
             }
@@ -1251,6 +1358,9 @@ function startLobbySession(lobby) {
 }
 
 function updateLobbyGameState(lobbyId, nextState) {
+    if (supabaseClient) {
+        return;
+    }
     state = updateState(current => {
         const lobby = current.lobbies[lobbyId];
         if (!lobby) return current;
@@ -1263,6 +1373,10 @@ function updateLobbyGameState(lobbyId, nextState) {
 }
 
 function confirmPlayerSetup(lobbyId, setupData) {
+    if (supabaseClient) {
+        confirmSetupRealtime(lobbyId, setupData);
+        return;
+    }
     state = updateState(current => {
         const lobby = current.lobbies[lobbyId];
         if (!lobby || !currentUser) return current;
@@ -1342,7 +1456,9 @@ function startSetupTimer(lobby) {
         setupTimerEl.textContent = formatTime(remaining);
         if (remaining <= 0) {
             stopSetupTimer();
-            autoCompleteSetup(updatedLobby);
+            if (!supabaseClient) {
+                autoCompleteSetup(updatedLobby);
+            }
             renderAll();
         }
     }, 1000);
@@ -1438,6 +1554,13 @@ function recordWin(lobbyId, winner) {
 
 function joinLobby(lobbyId) {
     if (!currentUser) return;
+    if (supabaseClient) {
+        joinLobbyRealtime(lobbyId);
+        currentLobbyId = lobbyId;
+        subscribeGame(lobbyId);
+        refreshLobbiesFromDb();
+        return;
+    }
     const updated = updateState(current => {
         const lobby = current.lobbies[lobbyId];
         if (!lobby) return current;
@@ -1456,12 +1579,16 @@ function joinLobby(lobbyId) {
     });
     state = updated;
     currentLobbyId = lobbyId;
-    localStorage.setItem(LOBBY_KEY, lobbyId);
     renderAll();
 }
 
 function createLobby() {
     if (!currentUser) return;
+    if (supabaseClient) {
+        const lobbyName = lobbyNameInput.value.trim() || `Lobby ${Object.keys(state.lobbies).length + 1}`;
+        createLobbyRealtime(lobbyName);
+        return;
+    }
     const lobbyName = lobbyNameInput.value.trim() || `Lobby ${Object.keys(state.lobbies).length + 1}`;
     const lobbyId = createId();
     const updated = updateState(current => {
@@ -1482,13 +1609,16 @@ function createLobby() {
     });
     state = updated;
     currentLobbyId = lobbyId;
-    localStorage.setItem(LOBBY_KEY, lobbyId);
     lobbyNameInput.value = '';
     renderAll();
 }
 
 function leaveLobby() {
     if (!currentLobbyId || !currentUser) return;
+    if (supabaseClient) {
+        leaveLobbyRealtime();
+        return;
+    }
     const updated = updateState(current => {
         const lobby = current.lobbies[currentLobbyId];
         if (!lobby) return current;
@@ -1508,7 +1638,6 @@ function leaveLobby() {
     });
     state = updated;
     currentLobbyId = null;
-    localStorage.removeItem(LOBBY_KEY);
     game = null;
     renderAll();
 }
@@ -1554,5 +1683,11 @@ if (externalUserName) {
 }
 if (currentUser) {
     usernameInput.value = currentUser.name;
+}
+if (supabaseClient) {
+    realtimeInit();
+    if (currentLobbyId) {
+        subscribeGame(currentLobbyId);
+    }
 }
 renderAll();

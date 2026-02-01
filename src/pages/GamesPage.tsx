@@ -26,7 +26,18 @@ export const GamesPage: React.FC = () => {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [showSamurai, setShowSamurai] = useState(false);
 
+  useEffect(() => {
+    (window as any).__supabaseClient = supabase;
+    return () => {
+      if ((window as any).__supabaseClient === supabase) {
+        delete (window as any).__supabaseClient;
+      }
+    };
+  }, []);
+
   const samuraiSrcDoc = useMemo(() => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
     const backgroundUrl = new URL('../components/games/SumaraiGame/Background.png', import.meta.url).href;
     const figurUrl = new URL('../components/games/SumaraiGame/Figur.png', import.meta.url).href;
     const schereUrl = new URL('../components/games/SumaraiGame/Schere.png', import.meta.url).href;
@@ -66,6 +77,11 @@ export const GamesPage: React.FC = () => {
 </head>
 <body>
   ${bodyContent}
+  <script>
+    window.__supabaseClient = window.parent?.__supabaseClient || null;
+    window.SUPABASE_URL = ${JSON.stringify(supabaseUrl)};
+    window.SUPABASE_ANON_KEY = ${JSON.stringify(supabaseAnonKey)};
+  </script>
   <script>${js}</script>
 </body>
 </html>`;

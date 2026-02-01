@@ -37,6 +37,8 @@ create table lobbies (
   code text unique not null, -- Short code for invites
   name text not null,
   owner_id uuid references profiles(id) not null,
+  status text check (status in ('waiting', 'setup', 'playing', 'finished')) default 'waiting',
+  setup_ends_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -49,6 +51,7 @@ create policy "Owners can update their lobbies." on lobbies for update using (au
 create table lobby_members (
   lobby_id uuid references lobbies(id) not null,
   user_id uuid references profiles(id) not null,
+  team integer,
   joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
   primary key (lobby_id, user_id)
 );

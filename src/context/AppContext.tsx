@@ -9,8 +9,6 @@ import { useAuth } from './AuthContext';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'adhs-checklist-v1';
-
 interface SavedState {
   points: number;
   totalPointsEarned: number;
@@ -37,14 +35,15 @@ const defaultState: SavedState = {
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [savedState, setSavedState] = useState<SavedState>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : defaultState;
-    } catch (error) {
-      console.error('Failed to load state from localStorage:', error);
-      return defaultState;
-    }
+  const [savedState, setSavedState] = useState<SavedState>(defaultState);
+
+  const mapTaskFromDb = (task: any): Task => ({
+    id: task.id,
+    text: task.text || '',
+    completed: Boolean(task.completed),
+    completedAt: task.completed_at ?? undefined,
+    type: task.type || 'daily',
+    dueDate: task.due_date ?? undefined,
   });
 
   // Sync stats to Supabase when points change
@@ -79,30 +78,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Load user data from Supabase on login
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setSavedState(defaultState);
+      return;
+    }
 
     const loadUserData = async () => {
       try {
-        // 1. Load Stats
         const { data: stats } = await supabase
           .from('user_stats')
           .select('*')
           .eq('user_id', user.id)
           .single();
 
-        if (stats) {
-          setSavedState(prev => ({
-            ...prev,
-            points: stats.points,
-            totalPointsEarned: stats.total_points,
-            activeThemeId: stats.active_theme_id || 'default'
-          }));
-        }
+        const { data: tasksData } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true });
 
-        // 2. Load Tasks (Assuming we implement task sync later fully, for now we keep local tasks but could merge)
-        // Ideally, we would fetch tasks from 'tasks' table here if implemented.
-        // For this step, we prioritize syncing stats as requested.
-        
+        const { data: unlocksData } = await supabase
+          .from('user_unlocks')
+          .select('item_id, type, claimed')
+          .eq('user_id', user.id);
+
+        const unlockedThemes = (unlocksData || [])
+          .filter(u => u.type === 'theme')
+          .map(u => u.item_id);
+
+        const unlockedAchievements = (unlocksData || [])
+          .filter(u => u.type === 'achievement')
+          .map(u => u.item_id);
+
+        const claimedAchievements = (unlocksData || [])
+          .filter(u => u.type === 'achievement' && u.claimed)
+          .map(u => u.item_id);
+
+        setSavedState(prev => ({
+          ...prev,
+          points: stats?.points ?? 0,
+          totalPointsEarned: stats?.total_points ?? 0,
+          activeThemeId: stats?.active_theme_id || 'default',
+          tasks: (tasksData || []).map(mapTaskFromDb),
+          unlockedThemeIds: ['default', ...unlockedThemes.filter(id => id !== 'default')],
+          unlockedAchievementIds: unlockedAchievements,
+          claimedAchievementIds: claimedAchievements,
+        }));
       } catch (err) {
         console.error('Error loading user data:', err);
       }
@@ -115,6 +136,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     const today = new Date();
     const todayString = today.toDateString();
+    let didDailyReset = false;
+    let didWeeklyReset = false;
     
     // Daily Reset
     if (savedState.lastResetDate !== todayString) {
@@ -127,6 +150,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         )),
         lastResetDate: todayString
       }));
+      didDailyReset = true;
     }
 
     // Weekly Reset (Monday 00:01)
@@ -152,14 +176,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         tasks: prev.tasks.filter(t => t.type !== 'weekly'),
         lastWeeklyResetDate: todayString
       }));
+      didWeeklyReset = true;
     }
 
-  }, [savedState.lastResetDate, savedState.lastWeeklyResetDate]);
+    if (user && didDailyReset) {
+      void supabase
+        .from('tasks')
+        .update({ completed: false, completed_at: null })
+        .eq('user_id', user.id)
+        .eq('type', 'daily');
+    }
 
-  // Save to local storage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
-  }, [savedState]);
+    if (user && didWeeklyReset) {
+      void supabase
+        .from('tasks')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('type', 'weekly');
+    }
+  }, [savedState.lastResetDate, savedState.lastWeeklyResetDate]);
 
   const appState: AppState = {
     points: savedState.points,
@@ -194,6 +229,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...prev,
         unlockedAchievementIds: [...prev.unlockedAchievementIds, ...newUnlocks],
       }));
+      if (user) {
+        void supabase.from('user_unlocks').upsert(
+          newUnlocks.map(itemId => ({
+            user_id: user.id,
+            item_id: itemId,
+            type: 'achievement',
+            claimed: false,
+          })),
+          { onConflict: 'user_id,item_id,type' },
+        );
+      }
       // Fire confetti!
       confetti({
         particleCount: 150,
@@ -203,25 +249,40 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       console.log('New achievements unlocked:', newUnlocks);
     }
-  }, [savedState, appState]);
+  }, [savedState, appState, user]);
 
   const addTask = (text: string, type: 'daily' | 'weekly' | 'monthly' = 'daily', dueDate?: string) => {
-    const newTask: Task = {
-      id: crypto.randomUUID(),
-      text,
-      completed: false,
-      type,
-      dueDate,
+    if (!user) return;
+    const createTask = async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          user_id: user.id,
+          text,
+          completed: false,
+          type,
+          due_date: dueDate ?? null,
+        })
+        .select('*')
+        .single();
+      if (error || !data) return;
+      setSavedState(prev => ({ ...prev, tasks: [...prev.tasks, mapTaskFromDb(data)] }));
     };
-    setSavedState(prev => ({ ...prev, tasks: [...prev.tasks, newTask] }));
+    void createTask();
   };
 
   const toggleTask = (id: string) => {
+    let nextCompleted = false;
+    let nextCompletedAt: number | undefined = undefined;
+    let shouldUpdate = false;
     setSavedState(prev => {
       const task = prev.tasks.find(t => t.id === id);
       if (!task) return prev;
 
       const isCompleting = !task.completed;
+      nextCompleted = isCompleting;
+      nextCompletedAt = isCompleting ? Date.now() : undefined;
+      shouldUpdate = true;
       const pointsChange = isCompleting ? 1 : -1;
 
       if (isCompleting) playSound.success();
@@ -245,13 +306,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...prev,
         tasks: prev.tasks.map(t => 
           t.id === id 
-            ? { ...t, completed: isCompleting, completedAt: isCompleting ? Date.now() : undefined } 
+            ? { ...t, completed: isCompleting, completedAt: nextCompletedAt } 
             : t
         ),
         points: newPoints,
         totalPointsEarned: newTotal, // Don't decrement total points earned, only current points
       };
     });
+    if (user && shouldUpdate) {
+      void supabase
+        .from('tasks')
+        .update({ completed: nextCompleted, completed_at: nextCompletedAt ?? null })
+        .eq('id', id)
+        .eq('user_id', user.id);
+    }
   };
 
   const deleteTask = (id: string) => {
@@ -259,6 +327,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ...prev,
       tasks: prev.tasks.filter(t => t.id !== id),
     }));
+    if (user) {
+      void supabase.from('tasks').delete().eq('id', id).eq('user_id', user.id);
+    }
   };
 
   const unlockTheme = (id: string) => {
@@ -272,6 +343,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       points: prev.points - theme.cost,
       unlockedThemeIds: [...prev.unlockedThemeIds, id],
     }));
+    if (user) {
+      void supabase.from('user_unlocks').upsert(
+        { user_id: user.id, item_id: id, type: 'theme', claimed: false },
+        { onConflict: 'user_id,item_id,type' },
+      );
+    }
     playSound.purchase();
   };
 
@@ -291,6 +368,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         )),
         lastResetDate: new Date().toDateString()
       }));
+      if (user) {
+        void supabase
+          .from('tasks')
+          .update({ completed: false, completed_at: null })
+          .eq('user_id', user.id)
+          .eq('type', 'daily');
+      }
   };
 
   const addPoints = (amount: number) => {
@@ -315,6 +399,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       totalPointsEarned: prev.totalPointsEarned + achievement.rewardPoints,
       claimedAchievementIds: [...(prev.claimedAchievementIds || []), id]
     }));
+    if (user) {
+      void supabase
+        .from('user_unlocks')
+        .update({ claimed: true })
+        .eq('user_id', user.id)
+        .eq('item_id', id)
+        .eq('type', 'achievement');
+    }
 
     playSound.success();
     

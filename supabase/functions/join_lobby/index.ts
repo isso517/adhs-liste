@@ -94,6 +94,7 @@ export default async (req: Request) => {
     if (!game) {
       await supabase.from("games").insert({
         lobby_id: lobbyId,
+        game_type: "samurai",
         player1_id: player1,
         player2_id: player2,
         current_turn: player1,
@@ -107,6 +108,7 @@ export default async (req: Request) => {
       await supabase
         .from("games")
         .update({
+          game_type: game.game_type ?? "samurai",
           player1_id: game.player1_id ?? player1,
           player2_id: game.player2_id ?? player2,
           current_turn: game.current_turn ?? player1,

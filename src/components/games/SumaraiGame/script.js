@@ -1143,28 +1143,22 @@ async function realtimeInit() {
 
 async function joinLobbyRealtime(lobbyId) {
     if (!supabaseClient) return;
-    await fetch("/functions/v1/join_lobby", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lobbyId, userId: currentUser.id })
+    await supabaseClient.functions.invoke("join_lobby", {
+        body: { lobbyId, userId: currentUser.id }
     });
 }
 
 async function confirmSetupRealtime(lobbyId, setup) {
     if (!supabaseClient) return;
-    await fetch("/functions/v1/confirm_setup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lobbyId, userId: currentUser.id, setup })
+    await supabaseClient.functions.invoke("confirm_setup", {
+        body: { lobbyId, userId: currentUser.id, setup }
     });
 }
 
 async function applyMoveRealtime(lobbyId, from, to, turnIndex, duel) {
     if (!supabaseClient) return;
-    await fetch("/functions/v1/apply_move", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lobbyId, userId: currentUser.id, from, to, turnIndex, duel })
+    await supabaseClient.functions.invoke("apply_move", {
+        body: { lobbyId, userId: currentUser.id, from, to, turnIndex, duel }
     });
 }
 
@@ -1291,6 +1285,19 @@ function renderSessionInfo() {
 }
 
 function renderAll() {
+    if (!currentUser) {
+        if (createLobbyBtn) createLobbyBtn.disabled = true;
+        if (landingLobbyList) landingLobbyList.innerHTML = '<div class="lobby-card">Bitte in der App einloggen</div>';
+        if (lobbyList) lobbyList.innerHTML = '<div class="lobby-card">Bitte in der App einloggen</div>';
+        if (leaderboard) leaderboard.innerHTML = '<div class="leaderboard-item">Bitte in der App einloggen</div>';
+        renderSessionInfo();
+        landing.style.display = 'flex';
+        gameUi.classList.remove('active');
+        stopSetupTimer();
+        stopTurnTimer();
+        return;
+    }
+    if (createLobbyBtn) createLobbyBtn.disabled = false;
     renderLobbyList(landingLobbyList, state.lobbies);
     renderLobbyList(lobbyList, state.lobbies);
     renderLeaderboard();
@@ -1642,19 +1649,6 @@ function leaveLobby() {
     renderAll();
 }
 
-loginBtn.addEventListener('click', () => {
-    const name = usernameInput.value.trim();
-    if (!name) return;
-    const user = { id: currentUser?.id || createId(), name, wins: currentUser?.wins || 0 };
-    currentUser = user;
-    saveUser(user);
-    updateState(current => {
-        current.users[user.id] = current.users[user.id] || { name: user.name, wins: user.wins || 0 };
-        return current;
-    });
-    renderAll();
-});
-
 createLobbyBtn.addEventListener('click', () => {
     createLobby();
 });
@@ -1663,13 +1657,15 @@ leaveLobbyBtn.addEventListener('click', () => {
     leaveLobby();
 });
 
-currentUser = loadUser();
 const externalUserName = window.SAMURAI_USER_NAME || window.AUTH_USER_NAME || window.SAMURAI_USER?.name;
 const externalUserId = window.SAMURAI_USER_ID || window.SAMURAI_USER?.id;
-if (externalUserName) {
+if (authPanel) {
+    authPanel.style.display = 'none';
+}
+if (externalUserName || externalUserId) {
     currentUser = {
         id: externalUserId || currentUser?.id || createId(),
-        name: externalUserName,
+        name: externalUserName || 'Spieler',
         wins: currentUser?.wins || 0
     };
     saveUser(currentUser);
@@ -1681,7 +1677,7 @@ if (externalUserName) {
         authPanel.style.display = 'none';
     }
 }
-if (currentUser) {
+if (currentUser && usernameInput) {
     usernameInput.value = currentUser.name;
 }
 if (supabaseClient) {

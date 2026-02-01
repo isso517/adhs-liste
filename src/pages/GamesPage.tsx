@@ -18,7 +18,7 @@ interface Invite {
 }
 
 export const GamesPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { themes, activeThemeId } = useApp();
   const navigate = useNavigate();
   const activeTheme = themes.find(t => t.id === activeThemeId) || themes[0];
@@ -38,6 +38,8 @@ export const GamesPage: React.FC = () => {
   const samuraiSrcDoc = useMemo(() => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+    const samuraiUserId = user?.id ?? null;
+    const samuraiUserName = profile?.username || user?.email || null;
     const backgroundUrl = new URL('../components/games/SumaraiGame/Background.png', import.meta.url).href;
     const figurUrl = new URL('../components/games/SumaraiGame/Figur.png', import.meta.url).href;
     const schereUrl = new URL('../components/games/SumaraiGame/Schere.png', import.meta.url).href;
@@ -81,11 +83,13 @@ export const GamesPage: React.FC = () => {
     window.__supabaseClient = window.parent?.__supabaseClient || null;
     window.SUPABASE_URL = ${JSON.stringify(supabaseUrl)};
     window.SUPABASE_ANON_KEY = ${JSON.stringify(supabaseAnonKey)};
+    window.SAMURAI_USER_ID = ${JSON.stringify(samuraiUserId)};
+    window.SAMURAI_USER_NAME = ${JSON.stringify(samuraiUserName)};
   </script>
   <script>${js}</script>
 </body>
 </html>`;
-  }, []);
+  }, [profile?.username, user?.email, user?.id]);
 
   // Listen for invites
   useEffect(() => {
@@ -293,7 +297,16 @@ export const GamesPage: React.FC = () => {
             </div>
           </div>
           <div className="flex border-t border-gray-100">
-            <button onClick={() => setShowSamurai(true)} className="flex-1 p-3 text-sm font-bold text-gray-900 hover:bg-gray-50 flex items-center justify-center gap-2">
+            <button
+              onClick={() => {
+                if (!user) {
+                  navigate('/login');
+                  return;
+                }
+                setShowSamurai(true);
+              }}
+              className="flex-1 p-3 text-sm font-bold text-gray-900 hover:bg-gray-50 flex items-center justify-center gap-2"
+            >
               Starten
             </button>
           </div>

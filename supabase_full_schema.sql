@@ -280,16 +280,49 @@ create policy "Users can leave lobbies." on lobby_members for delete using (auth
 
 create table if not exists games (
   id uuid default uuid_generate_v4() primary key,
-  game_type text check (game_type in ('tictactoe', 'rps')) not null,
+  game_type text check (game_type in ('tictactoe', 'rps', 'samurai')) not null,
+  lobby_id uuid references lobbies(id),
   player1_id uuid references auth.users not null,
   player2_id uuid references auth.users not null,
   current_turn uuid references auth.users,
   state jsonb default '{}'::jsonb,
-  status text check (status in ('waiting', 'playing', 'finished', 'aborted')) default 'waiting',
+  state_json jsonb default '{}'::jsonb,
+  turn_index integer default 0,
+  turn_ends_at timestamp with time zone,
+  setup_ends_at timestamp with time zone,
+  p1_penalties integer default 0,
+  p2_penalties integer default 0,
+  status text check (status in ('waiting', 'setup', 'playing', 'finished', 'aborted')) default 'waiting',
+  winner integer,
   winner_id uuid references auth.users,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table games add column if not exists lobby_id uuid references lobbies(id);
+alter table games add column if not exists state_json jsonb default '{}'::jsonb;
+alter table games add column if not exists turn_index integer default 0;
+alter table games add column if not exists turn_ends_at timestamp with time zone;
+alter table games add column if not exists setup_ends_at timestamp with time zone;
+alter table games add column if not exists p1_penalties integer default 0;
+alter table games add column if not exists p2_penalties integer default 0;
+alter table games add column if not exists winner integer;
+
+do $$
+begin
+  if exists (select 1 from pg_constraint where conname = 'games_game_type_check') then
+    alter table games drop constraint games_game_type_check;
+  end if;
+end $$;
+alter table games add constraint games_game_type_check check (game_type in ('tictactoe', 'rps', 'samurai'));
+
+do $$
+begin
+  if exists (select 1 from pg_constraint where conname = 'games_status_check') then
+    alter table games drop constraint games_status_check;
+  end if;
+end $$;
+alter table games add constraint games_status_check check (status in ('waiting', 'setup', 'playing', 'finished', 'aborted'));
 
 alter table games enable row level security;
 
@@ -300,6 +333,14 @@ begin
   end if;
 end $$;
 create policy "Players can view their own games." on games for select using (auth.uid() = player1_id or auth.uid() = player2_id);
+
+do $$
+begin
+  if exists (select 1 from pg_policies where tablename = 'games' and policyname = 'Samurai games are viewable by everyone.') then
+    drop policy "Samurai games are viewable by everyone." on games;
+  end if;
+end $$;
+create policy "Samurai games are viewable by everyone." on games for select using (game_type = 'samurai');
 
 do $$
 begin

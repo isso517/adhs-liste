@@ -37,6 +37,13 @@ export const FriendsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [addFriendLoading, setAddFriendLoading] = useState(false);
 
+  const getDisplayName = (name?: string | null) => {
+    if (name && name.trim()) return name;
+    return 'Unbekannt';
+  };
+
+  const getInitials = (name?: string | null) => getDisplayName(name).substring(0, 2).toUpperCase();
+
   useEffect(() => {
     if (user) {
       fetchFriends();
@@ -316,11 +323,11 @@ export const FriendsPage: React.FC = () => {
                   {sortedFriends[1] && (
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-16 h-16 rounded-full bg-gray-300 border-4 border-gray-400 flex items-center justify-center text-xl font-bold text-gray-900 uppercase">
-                        {sortedFriends[1].username.substring(0, 2)}
+                        {getInitials(sortedFriends[1].username)}
                       </div>
                       <div className="flex flex-col items-center bg-gray-200/50 p-3 rounded-t-lg w-24 h-28 justify-end relative text-gray-900">
                         <div className="absolute -top-3 bg-gray-400 text-white text-xs font-bold px-2 py-0.5 rounded-full">#2</div>
-                        <span className="font-bold truncate w-full text-center">{sortedFriends[1].username}</span>
+                        <span className="font-bold truncate w-full text-center">{getDisplayName(sortedFriends[1].username)}</span>
                         <span className="text-xs">{getPoints(sortedFriends[1])} Pkt</span>
                       </div>
                     </div>
@@ -331,11 +338,11 @@ export const FriendsPage: React.FC = () => {
                     <div className="flex flex-col items-center gap-2 z-10">
                       <Crown className="text-yellow-500 animate-bounce" size={24} />
                       <div className="w-20 h-20 rounded-full bg-yellow-100 border-4 border-yellow-400 flex items-center justify-center text-2xl font-bold text-yellow-700 shadow-lg uppercase">
-                         {sortedFriends[0].username.substring(0, 2)}
+                         {getInitials(sortedFriends[0].username)}
                       </div>
                       <div className="flex flex-col items-center bg-gradient-to-b from-yellow-100 to-yellow-50/50 p-3 rounded-t-lg w-28 h-36 justify-end relative shadow-sm text-gray-900">
                         <div className="absolute -top-3 bg-yellow-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">#1</div>
-                        <span className="font-bold truncate w-full text-center">{sortedFriends[0].username}</span>
+                        <span className="font-bold truncate w-full text-center">{getDisplayName(sortedFriends[0].username)}</span>
                         <span className="text-sm font-bold">{getPoints(sortedFriends[0])} Pkt</span>
                       </div>
                     </div>
@@ -345,11 +352,11 @@ export const FriendsPage: React.FC = () => {
                   {sortedFriends[2] && (
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-16 h-16 rounded-full bg-orange-100 border-4 border-orange-300 flex items-center justify-center text-xl font-bold text-orange-700 uppercase">
-                         {sortedFriends[2].username.substring(0, 2)}
+                         {getInitials(sortedFriends[2].username)}
                       </div>
                       <div className="flex flex-col items-center bg-orange-50/50 p-3 rounded-t-lg w-24 h-20 justify-end relative text-gray-900">
                         <div className="absolute -top-3 bg-orange-400 text-white text-xs font-bold px-2 py-0.5 rounded-full">#3</div>
-                        <span className="font-bold truncate w-full text-center">{sortedFriends[2].username}</span>
+                        <span className="font-bold truncate w-full text-center">{getDisplayName(sortedFriends[2].username)}</span>
                         <span className="text-xs">{getPoints(sortedFriends[2])} Pkt</span>
                       </div>
                     </div>
@@ -368,11 +375,11 @@ export const FriendsPage: React.FC = () => {
                         {friend.avatar_url ? (
                           <img src={friend.avatar_url} alt="Avatar" className="w-full h-full object-cover rounded-full" />
                         ) : (
-                          friend.username.substring(0, 2)
+                          getInitials(friend.username)
                         )}
                       </div>
                       <div>
-                        <div className="font-medium">{friend.username}</div>
+                        <div className="font-medium">{getDisplayName(friend.username)}</div>
                         <div className="text-xs">{getTasksCount(friend)} Aufgaben erledigt</div>
                       </div>
                     </div>
@@ -455,12 +462,12 @@ export const FriendsPage: React.FC = () => {
                       {friend.avatar_url ? (
                         <img src={friend.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
-                        friend.username.substring(0, 2)
+                        getInitials(friend.username)
                       )}
                     </div>
                   </div>
                   <div>
-                    <div className="font-medium">{friend.username}</div>
+                    <div className="font-medium">{getDisplayName(friend.username)}</div>
                     <div className="text-xs">{friend.points} Punkte</div>
                   </div>
                 </div>

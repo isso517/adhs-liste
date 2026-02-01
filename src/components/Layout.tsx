@@ -44,7 +44,7 @@ export const Layout: React.FC = () => {
 
       {/* Bottom Navigation */}
       <nav className={clsx("fixed bottom-0 left-0 right-0 border-t bg-white border-gray-200 z-50")}>
-        <div className="flex justify-around items-center max-w-md mx-auto h-16">
+        <div className="grid grid-cols-7 items-center max-w-md mx-auto h-16">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}

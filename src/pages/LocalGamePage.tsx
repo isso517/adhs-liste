@@ -62,7 +62,7 @@ export const LocalGamePage: React.FC = () => {
   useEffect(() => {
     if (!setupComplete) return;
 
-    let shouldAct = !isMyTurn && gameStatus === 'playing';
+    const shouldAct = !isMyTurn && gameStatus === 'playing';
     
     if (shouldAct) {
       const timer = setTimeout(() => {
@@ -72,7 +72,7 @@ export const LocalGamePage: React.FC = () => {
     }
   }, [isMyTurn, gameStatus, type, setupComplete]);
 
-  const handlePlayerMove = (newState: any, nextTurnId?: string) => {
+  const handlePlayerMove = (newState: any) => {
     if (type === 'tictactoe') {
       setTictactoeState(newState);
       setIsMyTurn(false);
